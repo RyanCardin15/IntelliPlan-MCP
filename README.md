@@ -55,5 +55,62 @@ An AI-powered task management system integrated into the Model Context Protocol 
 - `expandTask`: Assists in breaking down tasks.
 - `manageTaskStorage`: Configures where task data is saved.
 
+## Task Storage System
+
+IntelliPlan uses a structured storage approach:
+
+```
+intelliplan/              # Main folder (in the specified basePath)
+└── tasks/                # Tasks subfolder
+    ├── tasks.json        # Main tasks store with all tasks
+    └── [task-id]/        # Individual task folder for each task
+        └── task.json     # Individual task data
+```
+
+### Storage Configuration
+
+The storage system requires explicit configuration before using any task-related operations. You must always specify the base path where tasks should be stored.
+
+To configure storage, use the `manageTaskStorage` tool with the `basePath` parameter:
+
+```javascript
+// Set the storage location explicitly - REQUIRED
+await mcpServer.invokeForModel({
+  name: "mcp_task-orchestrator_manageTaskStorage",
+  params: {
+    action: "configure",
+    basePath: "/path/to/storage/location" // MUST be specified explicitly
+  }
+});
+
+// Check current storage info (also requires basePath)
+await mcpServer.invokeForModel({
+  name: "mcp_task-orchestrator_manageTaskStorage",
+  params: {
+    action: "getInfo",
+    basePath: "/path/to/storage/location" // MUST be the same location used previously
+  }
+});
+```
+
+All task tools will automatically use the configured storage system. To export task information to markdown files:
+
+```javascript
+await mcpServer.invokeForModel({
+  name: "mcp_task-orchestrator_manageTaskStorage",
+  params: {
+    action: "generateFiles",
+    basePath: "/path/to/storage/location", // REQUIRED
+    outputDirectory: "task-exports" // Optional, defaults to "task-exports"
+  }
+});
+```
+
+Note that the `basePath` parameter is required for all operations and must be consistent across calls to maintain access to the same tasks.
+
+## Task Operations
+
+(Document your other task operations here)
+
 ## License
 MIT 

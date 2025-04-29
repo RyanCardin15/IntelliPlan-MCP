@@ -2,7 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { descriptionSchema, prioritySchema } from "../schemas/commonSchemas.js";
 // Import necessary functions/types...
-import { addTask, saveTasks } from "../../infrastructure/storage/TaskStorageService.js";
+import { 
+    addTask, 
+    saveTasks, 
+    configureStorage,
+    loadTasks
+} from "../../infrastructure/storage/TaskStorageService.js";
 import { v4 as uuidv4 } from 'uuid';
 import type { Task, Subtask } from "../../types/TaskTypes.js";
 
@@ -15,8 +20,8 @@ const createTaskSchema = z.object({
     priority: prioritySchema,
     testStrategy: z.string().optional().describe("Testing strategy"),
     createSubtasks: z.boolean().optional().default(true).describe("Create subtasks from steps (default: true)"),
-    // Enhancement
-    autoExpandSubtasks: z.boolean().optional().default(false).describe("Attempt to auto-expand complex subtasks after creation (experimental)")
+    autoExpandSubtasks: z.boolean().optional().default(false).describe("Attempt to auto-expand complex subtasks after creation (experimental)"),
+    basePath: z.string().describe("Base directory path where task storage will be created (required)")
 });
 
 type CreateTaskParams = z.infer<typeof createTaskSchema>;
@@ -34,7 +39,8 @@ export function registerCreateTaskTool(server: McpServer): void {
             priority: prioritySchema,
             testStrategy: z.string().optional().describe("Testing strategy"),
             createSubtasks: z.boolean().optional().default(true).describe("Create subtasks from steps (default: true)"),
-            autoExpandSubtasks: z.boolean().optional().default(false).describe("Attempt to auto-expand complex subtasks after creation (experimental)")
+            autoExpandSubtasks: z.boolean().optional().default(false).describe("Attempt to auto-expand complex subtasks after creation (experimental)"),
+            basePath: z.string().describe("Base directory path where task storage will be created (required)")
         },
         async (params: CreateTaskParams) => {
             // Validate and get parameters using the inferred type
@@ -47,8 +53,36 @@ export function registerCreateTaskTool(server: McpServer): void {
                 priority, 
                 testStrategy,
                 createSubtasks = steps ? true : false, // Default based on steps
-                autoExpandSubtasks
+                autoExpandSubtasks,
+                basePath
             } = params;
+
+            // Require basePath parameter
+            if (!basePath) {
+                return { 
+                    content: [{ 
+                        type: "text", 
+                        text: "Error: 'basePath' parameter is required for all task operations." 
+                    }], 
+                    isError: true 
+                };
+            }
+
+            // Configure task storage with the provided path
+            try {
+                // Configure storage with the provided basePath
+                configureStorage(basePath);
+                // Load existing tasks if any
+                await loadTasks();
+            } catch (error: any) {
+                return { 
+                    content: [{ 
+                        type: "text", 
+                        text: `Error configuring task storage: ${error.message}` 
+                    }], 
+                    isError: true 
+                };
+            }
 
             const taskId = uuidv4();
             const now = new Date().toISOString();

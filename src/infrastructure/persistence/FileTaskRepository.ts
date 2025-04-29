@@ -1,13 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import type { Task, TaskStore } from '../../domain/task/entities/Task.js';
 import type { TaskRepository } from '../../domain/task/repositories/TaskRepository.js';
-
-// Get dirname in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 /**
  * File-based implementation of the TaskRepository
@@ -15,34 +9,154 @@ const __dirname = dirname(__filename);
  */
 export class FileTaskRepository implements TaskRepository {
   private taskStore: TaskStore = {};
+  private baseDir: string;
   private storageDir: string;
-  private tasksDir: string;
+  private storageFile: string;
   
-  constructor() {
-    // Use absolute path based on project root
-    this.storageDir = path.resolve(__dirname, '../../..');
-    this.tasksDir = path.join(this.storageDir, 'tasks');
+  /**
+   * Creates a new FileTaskRepository instance
+   * @param basePath Base directory path where intelliplan directory will be created (required)
+   */
+  constructor(private basePath: string) {
+    if (!basePath) {
+      throw new Error('Base path is required for storage configuration');
+    }
+    
+    const baseDirName = 'intelliplan';
+    const tasksDirName = 'tasks';
+    
+    this.baseDir = path.join(basePath, baseDirName);
+    this.storageDir = path.join(this.baseDir, tasksDirName);
+    this.storageFile = path.join(this.storageDir, 'tasks.json');
   }
   
   /**
-   * Get the tasks directory path
+   * Configure storage settings with a new base path
    */
-  getTasksDir(): string {
-    return this.tasksDir;
+  configureStorage(basePath: string): string {
+    if (!basePath) {
+      throw new Error('Base path is required for storage configuration');
+    }
+    
+    this.basePath = basePath;
+    
+    const baseDirName = 'intelliplan';
+    const tasksDirName = 'tasks';
+    
+    this.baseDir = path.join(this.basePath, baseDirName);
+    this.storageDir = path.join(this.baseDir, tasksDirName);
+    this.storageFile = path.join(this.storageDir, 'tasks.json');
+    
+    return this.storageDir;
   }
   
   /**
-   * Get the path for a specific task folder
+   * Get path to a specific task folder
    */
-  getTaskDir(taskId: string): string {
-    return path.join(this.getTasksDir(), taskId);
+  getTaskFolder(taskId: string): string {
+    return path.join(this.storageDir, taskId);
   }
   
   /**
-   * Get the path for a task data file
+   * Get current storage path
    */
-  getTaskFilePath(taskId: string): string {
-    return path.join(this.getTaskDir(taskId), 'task.json');
+  getStoragePath(): string {
+    return this.storageDir;
+  }
+  
+  /**
+   * Get base directory
+   */
+  getBaseDir(): string {
+    return this.baseDir;
+  }
+  
+  /**
+   * Helper to check if a file exists
+   */
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  
+  /**
+   * Ensure storage directory exists
+   */
+  private async ensureStorageDir(): Promise<void> {
+    try {
+      await fs.mkdir(this.storageDir, { recursive: true });
+    } catch (error) {
+      throw new Error(`Failed to create storage directory: ${error}`);
+    }
+  }
+  
+  /**
+   * Ensure task directory exists
+   */
+  private async ensureTaskDir(taskId: string): Promise<void> {
+    try {
+      const taskDir = this.getTaskFolder(taskId);
+      await fs.mkdir(taskDir, { recursive: true });
+    } catch (error) {
+      throw new Error(`Failed to create task directory: ${error}`);
+    }
+  }
+  
+  /**
+   * Loads tasks from storage
+   */
+  async loadTasks(): Promise<void> {
+    try {
+      await this.ensureStorageDir();
+      
+      try {
+        const data = await fs.readFile(this.storageFile, 'utf-8');
+        this.taskStore = JSON.parse(data);
+      } catch (error: any) {
+        if (error.code === 'ENOENT') {
+          this.taskStore = {};
+          await this.saveTasks();
+        } else {
+          this.taskStore = {};
+          throw error;
+        }
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  /**
+   * Saves tasks to storage
+   */
+  async saveTasks(): Promise<void> {
+    try {
+      await this.ensureStorageDir();
+      
+      // Save main tasks.json file
+      await fs.writeFile(
+        this.storageFile, 
+        JSON.stringify(this.taskStore, null, 2), 
+        'utf-8'
+      );
+      
+      // Create individual task files
+      for (const taskId in this.taskStore) {
+        await this.ensureTaskDir(taskId);
+        const taskFile = path.join(this.getTaskFolder(taskId), 'task.json');
+        await fs.writeFile(
+          taskFile, 
+          JSON.stringify(this.taskStore[taskId], null, 2), 
+          'utf-8'
+        );
+      }
+    } catch (error) {
+      throw error;
+    }
   }
   
   /**
@@ -53,7 +167,7 @@ export class FileTaskRepository implements TaskRepository {
   }
   
   /**
-   * Get a task by its ID
+   * Get task by ID
    */
   getTaskById(id: string): Task | undefined {
     return this.taskStore[id];
@@ -63,16 +177,12 @@ export class FileTaskRepository implements TaskRepository {
    * Add a new task
    */
   addTask(task: Task): boolean {
-    try {
-      if (!task.id) {
-        return false;
-      }
-      
-      this.taskStore[task.id] = task;
-      return true;
-    } catch (error) {
+    if (!task.id) {
       return false;
     }
+    
+    this.taskStore[task.id] = task;
+    return true;
   }
   
   /**
@@ -97,132 +207,14 @@ export class FileTaskRepository implements TaskRepository {
     
     delete this.taskStore[id];
     
-    // Also delete the task file and directory
-    try {
-      const taskDir = this.getTaskDir(id);
-      fs.rm(taskDir, { recursive: true, force: true }).catch(error => {
-        console.error(`Error deleting task directory for ${id}:`, error);
+    // Delete task directory (async operation, but interface requires sync return)
+    // We'll do this in the background without awaiting
+    const taskDir = this.getTaskFolder(id);
+    fs.rm(taskDir, { recursive: true, force: true })
+      .catch(error => {
+        console.error(`Error deleting task directory for task ${id}:`, error);
       });
-    } catch (error) {
-      console.error(`Error deleting task directory for ${id}:`, error);
-      // Continue even if directory deletion fails
-    }
     
     return true;
-  }
-  
-  /**
-   * Check if a file exists
-   */
-  private async fileExists(filePath: string): Promise<boolean> {
-    try {
-      await fs.access(filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  
-  /**
-   * Ensure the tasks directory exists
-   */
-  private async ensureTasksDir(): Promise<void> {
-    try {
-      const tasksDir = this.getTasksDir();
-      await fs.mkdir(tasksDir, { recursive: true });
-    } catch (error: any) {
-      if (error.code !== 'EEXIST') {
-        throw error;
-      }
-    }
-  }
-  
-  /**
-   * Ensure a specific task directory exists
-   */
-  private async ensureTaskDir(taskId: string): Promise<void> {
-    try {
-      const taskDir = this.getTaskDir(taskId);
-      await fs.mkdir(taskDir, { recursive: true });
-    } catch (error: any) {
-      if (error.code !== 'EEXIST') {
-        throw error;
-      }
-    }
-  }
-  
-  /**
-   * Save a specific task to its file
-   */
-  private async saveTask(task: Task): Promise<void> {
-    try {
-      await this.ensureTaskDir(task.id);
-      await fs.writeFile(
-        this.getTaskFilePath(task.id),
-        JSON.stringify(task, null, 2),
-        'utf-8'
-      );
-    } catch (error) {
-      throw error;
-    }
-  }
-  
-  /**
-   * Save all tasks to persistent storage
-   */
-  async saveTasks(): Promise<void> {
-    try {
-      await this.ensureTasksDir();
-      
-      // Save each task to its own file
-      const savePromises = Object.values(this.taskStore).map(task => this.saveTask(task));
-      await Promise.all(savePromises);
-    } catch (error) {
-      throw new Error(`Failed to save tasks: ${error}`);
-    }
-  }
-  
-  /**
-   * Load tasks from persistent storage
-   */
-  async loadTasks(): Promise<void> {
-    try {
-      // Only read the tasks directory if it exists
-      const tasksDir = this.getTasksDir();
-      
-      // Clear the current store
-      this.taskStore = {};
-      
-      // Check if directory exists before reading
-      const exists = await this.fileExists(tasksDir);
-      if (!exists) {
-        return; // Just return with empty store if no tasks directory exists
-      }
-      
-      // Read the tasks directory
-      const taskFolders = await fs.readdir(tasksDir);
-      
-      // Load each task
-      for (const taskId of taskFolders) {
-        const taskFilePath = this.getTaskFilePath(taskId);
-        
-        try {
-          if (await this.fileExists(taskFilePath)) {
-            const taskData = await fs.readFile(taskFilePath, 'utf-8');
-            const task = JSON.parse(taskData);
-            
-            if (task && task.id) {
-              this.taskStore[task.id] = task;
-            }
-          }
-        } catch (error) {
-          console.error(`Error loading task ${taskId}:`, error);
-          // Continue to next task if one fails
-        }
-      }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      this.taskStore = {}; // Start fresh on load error
-    }
   }
 } 

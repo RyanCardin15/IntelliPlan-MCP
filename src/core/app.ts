@@ -19,8 +19,8 @@ export class IntelliPlanApp {
       version: "1.0.0",
     });
     
-    // Set up repositories
-    this.taskRepository = new FileTaskRepository();
+    // Set up repositories with a default location that will be overridden by user choices
+    this.taskRepository = new FileTaskRepository(process.cwd());
     
     // Set up services
     this.taskService = new TaskService(this.taskRepository);
@@ -31,8 +31,15 @@ export class IntelliPlanApp {
    */
   async initialize(): Promise<void> {
     try {
-      // Load tasks from storage
-      await this.taskRepository.loadTasks();
+      // No pre-initialization of storage - let the agent tools handle it
+      
+      // Load tasks from repository if available
+      try {
+        await this.taskRepository.loadTasks();
+      } catch (error) {
+        // It's okay if this fails - storage might not be configured yet
+        console.log("Note: Task storage not initialized yet. Use manageTaskStorage tool to configure.");
+      }
       
       // Register tools and resources
       registerAllTools(this.server);
