@@ -49,6 +49,7 @@ const manageTaskSchema = z.object({
     subtaskStatus: subtaskStatusSchema.optional().describe("Subtask status (for updateSubtask)"),
     priority: prioritySchema.optional().describe("Priority level (for update)"),
     complexity: complexitySchema.optional().describe("Complexity score (for update)"),
+    details: z.string().optional().describe("Detailed implementation notes and documentation (for update)"),
     dependsOn: taskIdSchema.optional().describe("Dependency Task ID (for addDependency, removeDependency)"),
     filePath: z.string().optional().describe("File path (for addFile, removeFile)"),
     fileDescription: descriptionSchema.optional().describe("File description (for addFile)"),
@@ -83,6 +84,7 @@ export function registerManageTaskTool(server: McpServer): void {
             subtaskStatus: subtaskStatusSchema.optional().describe("Subtask status (for updateSubtask)"),
             priority: prioritySchema.optional().describe("Priority level (for update)"),
             complexity: complexitySchema.optional().describe("Complexity score (for update)"),
+            details: z.string().optional().describe("Detailed implementation notes and documentation (for update)"),
             dependsOn: taskIdSchema.optional().describe("Dependency Task ID (for addDependency, removeDependency)"),
             filePath: z.string().optional().describe("File path (for addFile, removeFile)"),
             fileDescription: descriptionSchema.optional().describe("File description (for addFile)"),
@@ -102,6 +104,7 @@ export function registerManageTaskTool(server: McpServer): void {
                 subtaskStatus,
                 priority,
                 complexity,
+                details,
                 dependsOn,
                 filePath,
                 fileDescription,
@@ -156,6 +159,7 @@ export function registerManageTaskTool(server: McpServer): void {
                         if (status !== undefined && task.status !== status) { updatedTask.status = status; updatedFields.push('status'); updated = true; }
                         if (priority !== undefined && task.priority !== priority) { updatedTask.priority = priority; updatedFields.push('priority'); updated = true; }
                         if (complexity !== undefined && task.complexity !== complexity) { updatedTask.complexity = complexity; updatedFields.push('complexity'); updated = true; }
+                        if (details !== undefined && task.details !== details) { updatedTask.details = details; updatedFields.push('details'); updated = true; }
                         
                         if (updated) {
                             updatedTask.updatedAt = new Date().toISOString();

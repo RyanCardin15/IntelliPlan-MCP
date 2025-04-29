@@ -1,8 +1,13 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import type { Task, TaskStore } from '../../domain/task/entities/Task.js';
 import type { TaskRepository } from '../../domain/task/repositories/TaskRepository.js';
+
+// Get dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 /**
  * File-based implementation of the TaskRepository
@@ -11,52 +16,33 @@ import type { TaskRepository } from '../../domain/task/repositories/TaskReposito
 export class FileTaskRepository implements TaskRepository {
   private taskStore: TaskStore = {};
   private storageDir: string;
-  private storageFile: string;
+  private tasksDir: string;
   
-  constructor(private useHiddenStorage: boolean = true) {
-    const homeDir = os.homedir();
-    const hiddenDirName = '.intelliplan';
-    const visibleDirName = 'intelliplan';
-    
-    this.storageDir = path.join(
-      homeDir, 
-      this.useHiddenStorage ? hiddenDirName : visibleDirName
-    );
-    
-    this.storageFile = path.join(this.storageDir, 'tasks.json');
+  constructor() {
+    // Use absolute path based on project root
+    this.storageDir = path.resolve(__dirname, '../../..');
+    this.tasksDir = path.join(this.storageDir, 'tasks');
   }
   
   /**
-   * Configure storage settings
+   * Get the tasks directory path
    */
-  configureStorage(useHidden: boolean): string {
-    this.useHiddenStorage = useHidden;
-    
-    const homeDir = os.homedir();
-    const hiddenDirName = '.intelliplan';
-    const visibleDirName = 'intelliplan';
-    
-    this.storageDir = path.join(
-      homeDir, 
-      this.useHiddenStorage ? hiddenDirName : visibleDirName
-    );
-    
-    this.storageFile = path.join(this.storageDir, 'tasks.json');
-    return this.storageDir;
+  getTasksDir(): string {
+    return this.tasksDir;
   }
   
   /**
-   * Get current storage path
+   * Get the path for a specific task folder
    */
-  getStoragePath(): string {
-    return this.storageDir;
+  getTaskDir(taskId: string): string {
+    return path.join(this.getTasksDir(), taskId);
   }
   
   /**
-   * Check if using hidden storage
+   * Get the path for a task data file
    */
-  isStorageHidden(): boolean {
-    return this.useHiddenStorage;
+  getTaskFilePath(taskId: string): string {
+    return path.join(this.getTaskDir(taskId), 'task.json');
   }
   
   /**
@@ -67,7 +53,7 @@ export class FileTaskRepository implements TaskRepository {
   }
   
   /**
-   * Get a task by ID
+   * Get a task by its ID
    */
   getTaskById(id: string): Task | undefined {
     return this.taskStore[id];
@@ -77,23 +63,27 @@ export class FileTaskRepository implements TaskRepository {
    * Add a new task
    */
   addTask(task: Task): boolean {
-    if (!task.id) {
+    try {
+      if (!task.id) {
+        return false;
+      }
+      
+      this.taskStore[task.id] = task;
+      return true;
+    } catch (error) {
       return false;
     }
-    
-    this.taskStore[task.id] = task;
-    return true;
   }
   
   /**
    * Update an existing task
    */
-  updateTask(id: string, updatedTask: Task): boolean {
+  updateTask(id: string, task: Task): boolean {
     if (!this.taskStore[id]) {
       return false;
     }
     
-    this.taskStore[id] = updatedTask;
+    this.taskStore[id] = task;
     return true;
   }
   
@@ -106,18 +96,19 @@ export class FileTaskRepository implements TaskRepository {
     }
     
     delete this.taskStore[id];
-    return true;
-  }
-  
-  /**
-   * Ensure storage directory exists
-   */
-  private async ensureStorageDir(): Promise<void> {
+    
+    // Also delete the task file and directory
     try {
-      await fs.mkdir(this.storageDir, { recursive: true });
+      const taskDir = this.getTaskDir(id);
+      fs.rm(taskDir, { recursive: true, force: true }).catch(error => {
+        console.error(`Error deleting task directory for ${id}:`, error);
+      });
     } catch (error) {
-      throw new Error(`Failed to create storage directory: ${error}`);
+      console.error(`Error deleting task directory for ${id}:`, error);
+      // Continue even if directory deletion fails
     }
+    
+    return true;
   }
   
   /**
@@ -133,16 +124,59 @@ export class FileTaskRepository implements TaskRepository {
   }
   
   /**
-   * Save tasks to persistent storage
+   * Ensure the tasks directory exists
+   */
+  private async ensureTasksDir(): Promise<void> {
+    try {
+      const tasksDir = this.getTasksDir();
+      await fs.mkdir(tasksDir, { recursive: true });
+    } catch (error: any) {
+      if (error.code !== 'EEXIST') {
+        throw error;
+      }
+    }
+  }
+  
+  /**
+   * Ensure a specific task directory exists
+   */
+  private async ensureTaskDir(taskId: string): Promise<void> {
+    try {
+      const taskDir = this.getTaskDir(taskId);
+      await fs.mkdir(taskDir, { recursive: true });
+    } catch (error: any) {
+      if (error.code !== 'EEXIST') {
+        throw error;
+      }
+    }
+  }
+  
+  /**
+   * Save a specific task to its file
+   */
+  private async saveTask(task: Task): Promise<void> {
+    try {
+      await this.ensureTaskDir(task.id);
+      await fs.writeFile(
+        this.getTaskFilePath(task.id),
+        JSON.stringify(task, null, 2),
+        'utf-8'
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
+  
+  /**
+   * Save all tasks to persistent storage
    */
   async saveTasks(): Promise<void> {
     try {
-      await this.ensureStorageDir();
-      await fs.writeFile(
-        this.storageFile, 
-        JSON.stringify(this.taskStore, null, 2), 
-        'utf-8'
-      );
+      await this.ensureTasksDir();
+      
+      // Save each task to its own file
+      const savePromises = Object.values(this.taskStore).map(task => this.saveTask(task));
+      await Promise.all(savePromises);
     } catch (error) {
       throw new Error(`Failed to save tasks: ${error}`);
     }
@@ -153,77 +187,42 @@ export class FileTaskRepository implements TaskRepository {
    */
   async loadTasks(): Promise<void> {
     try {
-      await this.ensureStorageDir();
+      // Only read the tasks directory if it exists
+      const tasksDir = this.getTasksDir();
       
-      try {
-        const data = await fs.readFile(this.storageFile, 'utf-8');
-        this.taskStore = JSON.parse(data);
-      } catch (error: any) {
-        if (error.code === 'ENOENT') {
-          this.taskStore = {};
-          // Create an initial empty file
-          await this.saveTasks();
-        } else {
-          this.taskStore = {}; // Start fresh on load error
-          await this.saveTasks();
-        }
+      // Clear the current store
+      this.taskStore = {};
+      
+      // Check if directory exists before reading
+      const exists = await this.fileExists(tasksDir);
+      if (!exists) {
+        return; // Just return with empty store if no tasks directory exists
       }
-    } catch (error) {
-      throw error;
-    }
-  }
-  
-  /**
-   * Toggle between hidden and visible storage
-   */
-  async toggleStorageVisibility(): Promise<string> {
-    const currentDir = this.storageDir;
-    const newUseHidden = !this.useHiddenStorage;
-    
-    const homeDir = os.homedir();
-    const hiddenDirName = '.intelliplan';
-    const visibleDirName = 'intelliplan';
-    
-    const newDir = path.join(
-      homeDir, 
-      newUseHidden ? hiddenDirName : visibleDirName
-    );
-    
-    const newFile = path.join(newDir, 'tasks.json');
-    
-    try {
-      // Save current data if it exists
-      const hasExistingData = await this.fileExists(this.storageFile);
       
-      // Update configuration
-      this.useHiddenStorage = newUseHidden;
-      this.storageDir = newDir;
-      this.storageFile = newFile;
+      // Read the tasks directory
+      const taskFolders = await fs.readdir(tasksDir);
       
-      // Ensure new directory exists
-      await this.ensureStorageDir();
-      
-      // If we have data, migrate it
-      if (hasExistingData) {
+      // Load each task
+      for (const taskId of taskFolders) {
+        const taskFilePath = this.getTaskFilePath(taskId);
+        
         try {
-          // Read from old location
-          const data = await fs.readFile(path.join(currentDir, 'tasks.json'), 'utf-8');
-          // Write to new location
-          await fs.writeFile(this.storageFile, data, 'utf-8');
-        } catch (error: any) {
-          // If we can't migrate, at least save current in-memory data
-          if (Object.keys(this.taskStore).length > 0) {
-            await this.saveTasks();
+          if (await this.fileExists(taskFilePath)) {
+            const taskData = await fs.readFile(taskFilePath, 'utf-8');
+            const task = JSON.parse(taskData);
+            
+            if (task && task.id) {
+              this.taskStore[task.id] = task;
+            }
           }
+        } catch (error) {
+          console.error(`Error loading task ${taskId}:`, error);
+          // Continue to next task if one fails
         }
-      } else if (Object.keys(this.taskStore).length > 0) {
-        // No existing file but we have in-memory data
-        await this.saveTasks();
       }
-      
-      return this.storageDir;
     } catch (error) {
-      throw error;
+      console.error('Error loading tasks:', error);
+      this.taskStore = {}; // Start fresh on load error
     }
   }
 } 

@@ -33,7 +33,6 @@ An AI-powered task management system integrated into the Model Context Protocol 
       }
     }
     ```
-    *Important: Replace `/path/to/IntelliPlan` with the **absolute path** to where you cloned this project.*
 
 5.  **Enable MCP** in your editor's settings.
 6.  **Use IntelliPlan**: Interact with the server using natural language within your editor (e.g., using `@IntelliPlanMCP` in Cursor chat):
