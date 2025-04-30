@@ -120,7 +120,7 @@ export function registerPlanEpicTool(server: McpServer): void {
                     metadata.nextAction = "Call planEpic again with updated planContext and currentStep";
                     metadata.nextStepName = steps[nextStep];
                 } else {
-                    metadata.nextAction = "Create Epic structure using createEpic tool";
+                    metadata.nextAction = "Create Epic structure using batchEpic tool";
                 }
                 
                 return {
@@ -388,25 +388,26 @@ function generateFinalizationPrompt(planContext: string, basePath?: string): str
     
     prompt += `## Action Items\n`;
     prompt += `1. Review the complete plan above to ensure it covers all requirements and has appropriate detail\n`;
-    prompt += `2. Use the \`createEpic\` tool to create the Epic structure:\n`;
-    prompt += `   - Use the component breakdown as Tasks\n`;
-    prompt += `   - Use detailed tasks as Subtasks\n`;
+    prompt += `2. Use the \`batchEpic\` tool to create the complete Epic structure in a single operation:\n`;
+    prompt += `   - Include all tasks with proper hierarchy\n`;
+    prompt += `   - Include all subtasks for each task\n`;
     prompt += `   - Include dependencies as defined\n`;
     prompt += `   - Set appropriate complexity values\n\n`;
     
     if (basePath) {
-        prompt += `3. When calling createEpic, use basePath: "${basePath}"\n\n`;
+        prompt += `3. When calling batchEpic, use basePath: "${basePath}"\n\n`;
     }
     
     prompt += `4. After creating the Epic, use the \`getEpicOverview\` tool to review the created structure\n\n`;
     
     prompt += `## Important\n`;
-    prompt += `- You've now completed the planEpic process. The next step is to call the createEpic tool\n`;
+    prompt += `- You've now completed the planEpic process. The next step is to call the batchEpic tool\n`;
+    prompt += `- The batchEpic tool allows you to create the complete Epic with all tasks and subtasks in a single operation\n`;
     prompt += `- Ensure the Epic captures the hierarchical structure we've developed\n`;
     prompt += `- Include all the implementation details and test strategy in the appropriate descriptions\n`;
     prompt += `- Set up the dependencies correctly based on our dependency mapping\n\n`;
     
-    prompt += `You now have a comprehensive Epic plan ready to be created with the createEpic tool!`;
+    prompt += `You now have a comprehensive Epic plan ready to be created with the batchEpic tool!`;
     
     return prompt;
 } 

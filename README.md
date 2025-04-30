@@ -32,6 +32,22 @@ IntelliPlan is an intelligent task management system that seamlessly integrates 
 - **Stay in Your Workflow** - No need to switch context between tools
 - **MCP Protocol Support** - Works with any editor that implements the Model Context Protocol
 
+## 📋 Available Tools
+
+IntelliPlan provides a suite of powerful tools to manage your development process:
+
+| Tool | Description |
+|------|-------------|
+| `batchEpic` | Creates a complete Epic with multiple tasks, each potentially having multiple subtasks, in a single operation. |
+| `createEpic` | Creates a new Epic (top-level task) with planning details and optional initial Task creation. |
+| `executeItem` | Executes or provides guidance for executing an Epic or Task. |
+| `expandTask` | Breaks down a task or epic into smaller, actionable sub-items. |
+| `generatePlan` | Generates prompts/guidance for planning, analysis, or handling implementation changes. |
+| `getEpicOverview` | Provides a detailed, easy-to-read overview of an Epic, its tasks, and related information. |
+| `manageItems` | Manages Epics, Tasks, and Subtasks with various operations (create, update, delete, etc.). |
+| `manageTaskStorage` | Manages the storage configuration and exports for Epics and Tasks. |
+| `planEpic` | Interactively creates a detailed implementation plan with hierarchical tasks and subtasks through sequential thinking, guiding the agent through multiple steps of refinement. |
+
 ## 🎮 Usage Examples
 
 ```
@@ -49,6 +65,9 @@ IntelliPlan is an intelligent task management system that seamlessly integrates 
 
 # Generate an implementation plan for a task
 @IntelliPlanMCP generatePlan planType=implementation taskId=your-task-id
+
+# Create a complete epic with nested tasks in a single operation
+@IntelliPlanMCP batchEpic description="Multi-tenant user authentication" basePath="/path/to/project" tasks=[...]
 ```
 
 ## 🛠️ Getting Started
