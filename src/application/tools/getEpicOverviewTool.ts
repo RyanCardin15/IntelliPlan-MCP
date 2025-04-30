@@ -1,8 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 // Import schemas
-import { configureStorage, loadEpics, getEpics, getEpicById, getTaskById } from "../../infrastructure/storage/TaskStorageService.js";
+import { configureStorage, loadEpics, getEpics, getEpicById, getTaskById, getEpicFolder } from "../../infrastructure/storage/TaskStorageService.js";
 import type { Epic, Task, Subtask, AssociatedFile, Status } from "../../domain/task/entities/Task.js";
 
 // Define Epic ID schema
@@ -180,23 +182,26 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                         // Begin building the overview
                         let output = `# 📊 Epic Overview: ${epic.description.split('\n')[0]}\n\n`;
                         
+                        // Add timestamp of when this overview was generated
+                        output += `> Generated on: ${new Date().toLocaleString()}\n\n`;
+                        
                         // Status and progress section
                         output += `## Status and Progress\n\n`;
-                        output += `**Status**: ${getStatusEmoji(epic.status)} ${epic.status}\n`;
+                        output += `**Status**: ${getStatusEmoji(epic.status)} ${epic.status}\n\n`;
                         
                         if (epic.priority) {
-                            output += `**Priority**: ${getPriorityEmoji(epic.priority)} ${epic.priority}\n`;
+                            output += `**Priority**: ${getPriorityEmoji(epic.priority)} ${epic.priority}\n\n`;
                         }
                         
                         if (epic.complexity) {
-                            output += `**Complexity**: ${epic.complexity}/10\n`;
+                            output += `**Complexity**: ${epic.complexity}/10\n\n`;
                         }
                         
-                        output += `**Progress**: ${getProgressBar(completion.percentage)}\n`;
-                        output += `**Tasks**: ${completion.completedTasks}/${completion.totalTasks} completed\n`;
-                        output += `**Subtasks**: ${completion.completedSubtasks}/${completion.totalSubtasks} completed\n`;
-                        output += `**ID**: \`${epic.id}\`\n`;
-                        output += `**Created**: ${new Date(epic.createdAt).toLocaleString()}\n`;
+                        output += `**Progress**: ${getProgressBar(completion.percentage)}\n\n`;
+                        output += `**Tasks**: ${completion.completedTasks}/${completion.totalTasks} completed\n\n`;
+                        output += `**Subtasks**: ${completion.completedSubtasks}/${completion.totalSubtasks} completed\n\n`;
+                        output += `**ID**: \`${epic.id}\`\n\n`;
+                        output += `**Created**: ${new Date(epic.createdAt).toLocaleString()}\n\n`;
                         output += `**Updated**: ${new Date(epic.updatedAt).toLocaleString()}\n\n`;
                         
                         // Description section
@@ -233,18 +238,23 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                         ? `(${task.subtasks.filter(s => s.status === 'done').length}/${task.subtasks.length} subtasks)` 
                                         : '';
                                     
-                                    output += `${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
+                                    // Use markdown list format for main tasks
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
                                     
                                     // Add subtasks for detailed/full verbosity
                                     if ((verbosity === 'detailed' || verbosity === 'full') && task.subtasks?.length > 0) {
                                         task.subtasks.forEach(subtask => {
                                             const subtaskStatus = subtask.status === 'done' ? '[x] ✅' : '[ ] ⬜';
-                                            output += `  ${subtaskStatus} ${subtask.description}\n`;
+                                            // Indent subtasks with proper markdown list formatting
+                                            output += `  - ${subtaskStatus} ${subtask.description}\n`;
                                         });
-                                        output += '\n';
+                                        // Subtasks already have newline, add one more for spacing
+                                        output += '\n'; 
+                                    } else {
+                                        // Add extra blank line after task if no subtasks
+                                        output += '\n'; 
                                     }
                                 });
-                                output += '\n';
                             }
                             
                             // Todo tasks next
@@ -255,36 +265,46 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                         ? `(${task.subtasks.filter(s => s.status === 'done').length}/${task.subtasks.length} subtasks)` 
                                         : '';
                                     
-                                    output += `${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
+                                    // Use markdown list format for main tasks
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
                                     
                                     // Add subtasks for detailed/full verbosity
                                     if ((verbosity === 'detailed' || verbosity === 'full') && task.subtasks?.length > 0) {
                                         task.subtasks.forEach(subtask => {
                                             const subtaskStatus = subtask.status === 'done' ? '[x] ✅' : '[ ] ⬜';
-                                            output += `  ${subtaskStatus} ${subtask.description}\n`;
+                                            // Indent subtasks with proper markdown list formatting
+                                            output += `  - ${subtaskStatus} ${subtask.description}\n`;
                                         });
+                                        // Subtasks already have newline, add one more for spacing
+                                        output += '\n';
+                                    } else {
+                                        // Add extra blank line after task if no subtasks
                                         output += '\n';
                                     }
                                 });
-                                output += '\n';
                             }
                             
                             // Done tasks last
                             if (doneTasks.length > 0) {
                                 output += `### Completed Tasks\n\n`;
                                 doneTasks.forEach(task => {
-                                    output += `${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]}\n`;
+                                    // Use markdown list format for main tasks
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]}\n`;
                                     
                                     // For completed tasks, only show subtasks in full verbosity
                                     if (verbosity === 'full' && task.subtasks?.length > 0) {
                                         task.subtasks.forEach(subtask => {
                                             const subtaskStatus = subtask.status === 'done' ? '[x] ✅' : '[ ] ⬜';
-                                            output += `  ${subtaskStatus} ${subtask.description}\n`;
+                                            // Indent subtasks with proper markdown list formatting
+                                            output += `  - ${subtaskStatus} ${subtask.description}\n`;
                                         });
+                                        // Subtasks already have newline, add one more for spacing
+                                        output += '\n';
+                                    } else {
+                                        // Add extra blank line after task if no subtasks
                                         output += '\n';
                                     }
                                 });
-                                output += '\n';
                             }
                         }
                         
@@ -345,61 +365,215 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                             output += `    "Remaining Tasks" : ${completion.totalTasks - completion.completedTasks}\n`;
                             output += "```\n\n";
                             
-                            // Dependency graph
-                            output += `### Dependency Graph\n\n`;
-                            output += "```mermaid\ngraph TD;\n";
+                            // Group tasks by status for diagram use
+                            const todoTasksForDiagrams = epic.tasks.filter(t => t.status === 'todo');
+                            const inProgressTasksForDiagrams = epic.tasks.filter(t => t.status === 'in-progress');
+                            const doneTasksForDiagrams = epic.tasks.filter(t => t.status === 'done');
                             
+                            // Dependency graph with improved readability
+                            output += `### Dependency Graph\n\n`;
+                            output += "```mermaid\nflowchart TB\n";
+                            // Completely simplify graph configuration
+                            output += "    classDef epicNode fill:#f9f,stroke:#333,stroke-width:2px;\n";
+                            output += "    classDef taskNode fill:#bbf,stroke:#333,stroke-width:1px;\n";
+                            output += "    classDef doneNode fill:#bfb,stroke:#333;\n";
+                            output += "    classDef inProgressNode fill:#ffb,stroke:#333;\n";
+                            
+                            // Use LR orientation and fixed width labels for better spacing
                             // Current epic node
-                            output += `    EPIC_${epic.id.substring(0, 8)}["${getStatusEmoji(epic.status)} Epic: ${epic.description.split('\n')[0]}"];\n`;
+                            output += `    EPIC_${epic.id.substring(0, 8)}["${getStatusEmoji(epic.status)} Epic: ${epic.description.split('\n')[0].substring(0, 30)}${epic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
+                            output += `    class EPIC_${epic.id.substring(0, 8)} epicNode;\n`;
                             
                             // Epic dependencies
                             if (epic.dependencies) {
                                 for (const depId of epic.dependencies) {
                                     const depEpic = getEpicById(depId);
                                     if (depEpic) {
-                                        output += `    EPIC_${depId.substring(0, 8)}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0]}"];\n`;
+                                        output += `    EPIC_${depId.substring(0, 8)}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0].substring(0, 30)}${depEpic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
                                         output += `    EPIC_${depId.substring(0, 8)} --> EPIC_${epic.id.substring(0, 8)};\n`;
+                                        output += `    class EPIC_${depId.substring(0, 8)} epicNode${depEpic.status === 'done' ? ',doneNode' : depEpic.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
                                     }
                                 }
                             }
                             
-                            // Tasks in the epic
-                            for (const task of epic.tasks) {
-                                output += `    TASK_${task.id.substring(0, 8)}["${getStatusEmoji(task.status)} Task: ${task.description.split('\n')[0]}"];\n`;
+                            // Tasks in the epic (with simplified labels for better rendering)
+                            // Only include first few tasks in diagram to prevent overcrowding
+                            const MAX_TASKS_IN_DIAGRAM = 6;
+                            const tasksForDiagram = epic.tasks.slice(0, MAX_TASKS_IN_DIAGRAM);
+                            
+                            for (const task of tasksForDiagram) {
+                                const truncatedDesc = task.description.split('\n')[0].substring(0, 25) + 
+                                    (task.description.split('\n')[0].length > 25 ? '...' : '');
+                                output += `    TASK_${task.id.substring(0, 8)}["${getStatusEmoji(task.status)} Task: ${truncatedDesc}"];\n`;
                                 output += `    EPIC_${epic.id.substring(0, 8)} --> TASK_${task.id.substring(0, 8)};\n`;
-                                
-                                // Task dependencies
-                                if (task.dependencies) {
-                                    for (const depId of task.dependencies) {
-                                        const depTaskResult = getTaskById(depId);
-                                        const depEpic = getEpicById(depId);
-                                        
-                                        if (depTaskResult) {
-                                            output += `    TASK_${depId.substring(0, 8)}["${getStatusEmoji(depTaskResult.task.status)} Task: ${depTaskResult.task.description.split('\n')[0]}"];\n`;
-                                            output += `    TASK_${depId.substring(0, 8)} --> TASK_${task.id.substring(0, 8)};\n`;
-                                        } else if (depEpic) {
-                                            output += `    EPIC_${depId.substring(0, 8)}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0]}"];\n`;
-                                            output += `    EPIC_${depId.substring(0, 8)} --> TASK_${task.id.substring(0, 8)};\n`;
-                                        }
-                                    }
-                                }
+                                output += `    class TASK_${task.id.substring(0, 8)} taskNode${task.status === 'done' ? ',doneNode' : task.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
                             }
                             
-                            // Dependents
-                            for (const depEpic of epicDependents) {
-                                output += `    EPIC_${depEpic.id.substring(0, 8)}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0]}"];\n`;
-                                output += `    EPIC_${epic.id.substring(0, 8)} --> EPIC_${depEpic.id.substring(0, 8)};\n`;
-                            }
-                            
-                            for (const { task, epic: parentEpic } of taskDependents) {
-                                output += `    TASK_${task.id.substring(0, 8)}["${getStatusEmoji(task.status)} Task: ${task.description.split('\n')[0]}"];\n`;
-                                output += `    EPIC_${epic.id.substring(0, 8)} --> TASK_${task.id.substring(0, 8)};\n`;
+                            // Add a note if tasks were omitted
+                            if (epic.tasks.length > MAX_TASKS_IN_DIAGRAM) {
+                                const remainingTasks = epic.tasks.length - MAX_TASKS_IN_DIAGRAM;
+                                output += `    MORE["...and ${remainingTasks} more tasks"];\n`;
+                                output += `    EPIC_${epic.id.substring(0, 8)} --> MORE;\n`;
+                                output += `    class MORE taskNode;\n`;
                             }
                             
                             output += "```\n\n";
+                            
+                            // Add a more detailed flowchart for complex epics
+                            if (epic.tasks.length > 3 && verbosity === 'full') {
+                                output += `### Task Flow Diagram\n\n`;
+                                output += "```mermaid\nflowchart TB\n";
+                                output += "    %% Flowchart settings\n";
+                                
+                                // Add subgraphs for different statuses
+                                // Limit number of tasks in each subgraph
+                                const MAX_TASKS_PER_STATUS = 5;
+                                
+                                if (todoTasksForDiagrams.length > 0) {
+                                    output += "    subgraph TODO[\"⏳ To Do Tasks\"]\n";
+                                    const todoForDisplay = todoTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS);
+                                    todoForDisplay.forEach((task: Task) => {
+                                        const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
+                                            (task.description.split('\n')[0].length > 30 ? '...' : '');
+                                        output += `        TODO_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                    });
+                                    
+                                    // Add a note if tasks were omitted
+                                    if (todoTasksForDiagrams.length > MAX_TASKS_PER_STATUS) {
+                                        output += `        TODO_MORE["...and ${todoTasksForDiagrams.length - MAX_TASKS_PER_STATUS} more tasks"];\n`;
+                                    }
+                                    
+                                    output += "    end\n\n";
+                                }
+                                
+                                if (inProgressTasksForDiagrams.length > 0) {
+                                    output += "    subgraph PROGRESS[\"🚧 In Progress Tasks\"]\n";
+                                    const inProgressForDisplay = inProgressTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS);
+                                    inProgressForDisplay.forEach((task: Task) => {
+                                        const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
+                                            (task.description.split('\n')[0].length > 30 ? '...' : '');
+                                        output += `        INPROGRESS_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                    });
+                                    
+                                    // Add a note if tasks were omitted
+                                    if (inProgressTasksForDiagrams.length > MAX_TASKS_PER_STATUS) {
+                                        output += `        INPROGRESS_MORE["...and ${inProgressTasksForDiagrams.length - MAX_TASKS_PER_STATUS} more tasks"];\n`;
+                                    }
+                                    
+                                    output += "    end\n\n";
+                                }
+                                
+                                if (doneTasksForDiagrams.length > 0) {
+                                    output += "    subgraph DONE[\"✅ Completed Tasks\"]\n";
+                                    const doneForDisplay = doneTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS);
+                                    doneForDisplay.forEach((task: Task) => {
+                                        const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
+                                            (task.description.split('\n')[0].length > 30 ? '...' : '');
+                                        output += `        DONE_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                    });
+                                    
+                                    // Add a note if tasks were omitted
+                                    if (doneTasksForDiagrams.length > MAX_TASKS_PER_STATUS) {
+                                        output += `        DONE_MORE["...and ${doneTasksForDiagrams.length - MAX_TASKS_PER_STATUS} more tasks"];\n`;
+                                    }
+                                    
+                                    output += "    end\n\n";
+                                }
+                                
+                                // Define default empty arrays to avoid undefined errors
+                                const todoForDisplay: Task[] = todoTasksForDiagrams.length > 0 ? 
+                                    todoTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS) : [];
+                                    
+                                const inProgressForDisplay: Task[] = inProgressTasksForDiagrams.length > 0 ? 
+                                    inProgressTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS) : [];
+                                    
+                                const doneForDisplay: Task[] = doneTasksForDiagrams.length > 0 ? 
+                                    doneTasksForDiagrams.slice(0, MAX_TASKS_PER_STATUS) : [];
+                                
+                                // Add connections based on dependencies - limit to visible tasks only
+                                const allDisplayedTaskIds = new Set([
+                                    ...todoForDisplay.map((t: Task) => t.id),
+                                    ...inProgressForDisplay.map((t: Task) => t.id),
+                                    ...doneForDisplay.map((t: Task) => t.id)
+                                ]);
+                                
+                                // Only add connections for tasks that are actually displayed
+                                for (const task of [...todoForDisplay, ...inProgressForDisplay, ...doneForDisplay]) {
+                                    if (task.dependencies) {
+                                        for (const depId of task.dependencies) {
+                                            // Only add connection if both tasks are displayed
+                                            if (allDisplayedTaskIds.has(depId)) {
+                                                const depTaskResult = getTaskById(depId);
+                                                if (depTaskResult && epic.tasks.some(t => t.id === depId)) {
+                                                    const sourcePrefix = depTaskResult.task.status === 'done' ? 'DONE' : 
+                                                                      depTaskResult.task.status === 'in-progress' ? 'INPROGRESS' : 'TODO';
+                                                    const targetPrefix = task.status === 'done' ? 'DONE' : 
+                                                                      task.status === 'in-progress' ? 'INPROGRESS' : 'TODO';
+                                                    
+                                                    output += `    ${sourcePrefix}_${depId.substring(0, 8)} --> ${targetPrefix}_${task.id.substring(0, 8)};\n`;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                output += "```\n\n";
+                            }
+                            
+                            // Use Mermaid gantt chart to show task timeline if there are multiple tasks
+                            if (epic.tasks.length > 1 && verbosity === 'full') {
+                                output += `### Timeline View\n\n`;
+                                output += "```mermaid\ngantt\n";
+                                output += "    title Epic Timeline\n";
+                                output += "    dateFormat  YYYY-MM-DD\n";
+                                output += "    axisFormat %m/%d\n";
+                                
+                                // Start date is the earliest creation date among tasks
+                                const startDate = epic.tasks.reduce((earliest, task) => {
+                                    const taskDate = new Date(task.createdAt);
+                                    return taskDate < earliest ? taskDate : earliest;
+                                }, new Date(epic.createdAt));
+                                
+                                // Format the date as YYYY-MM-DD
+                                const formattedStartDate = startDate.toISOString().split('T')[0];
+                                output += `    section Tasks\n`;
+                                
+                                // Add each task as a gantt section
+                                epic.tasks.forEach((task, index) => {
+                                    const taskDescription = task.description.split('\n')[0].replace(/"/g, "'"); // Escape quotes
+                                    const status = task.status === 'done' ? 'done' : task.status === 'in-progress' ? 'active' : 'crit';
+                                    
+                                    // Calculate a duration based on complexity or a default
+                                    const duration = task.complexity ? Math.max(task.complexity, 1) : 3;
+                                    output += `    ${taskDescription} :${status}, ${formattedStartDate}, ${duration}d\n`;
+                                });
+                                
+                                output += "```\n\n";
+                            }
                         }
                         
-                        return { content: [{ type: "text", text: output }] };
+                        // Write the overview to a markdown file in the epic's directory
+                        try {
+                            const epicDir = getEpicFolder(epicId);
+                            const overviewPath = path.join(epicDir, 'overview.md');
+                            await fs.writeFile(overviewPath, output, 'utf-8');
+                            
+                            // Return both the content and the file location
+                            return { 
+                                content: [
+                                    { type: "text", text: output },
+                                    { type: "text", text: `\n---\nOverview saved to: ${overviewPath}` }
+                                ] 
+                            };
+                        } catch (error: any) {
+                            return { 
+                                content: [
+                                    { type: "text", text: output },
+                                    { type: "text", text: `\n---\nWarning: Could not save overview to file: ${error.message}` }
+                                ],
+                                isError: false // Don't mark as error since we still have the output
+                            };
+                        }
                     }
                     
                     case 'suggestNext': {
