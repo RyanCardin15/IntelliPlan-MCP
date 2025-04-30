@@ -44,7 +44,6 @@ IntelliPlan provides a suite of powerful tools to manage your development proces
 | `createEpic` | Creates a new Epic (top-level task) with planning details and optional initial Task creation. |
 | `executeItem` | Executes or provides guidance for executing an Epic or Task. |
 | `expandTask` | Breaks down a task or epic into smaller, actionable sub-items. |
-| `generatePlan` | Generates prompts/guidance for planning, analysis, or handling implementation changes. |
 | `getEpicOverview` | Provides a detailed, easy-to-read overview of an Epic, its tasks, and related information. |
 | `manageItems` | Manages Epics, Tasks, and Subtasks with various operations (create, update, delete, etc.). |
 | `manageTaskStorage` | Manages the storage configuration and exports for Epics and Tasks. |
@@ -64,9 +63,6 @@ IntelliPlan provides a suite of powerful tools to manage your development proces
 
 # Get an overview of all your epics
 @IntelliPlanMCP manageItems action=listEpics
-
-# Generate an implementation plan for a task
-@IntelliPlanMCP generatePlan planType=implementation taskId=your-task-id
 
 # Create a complete epic with nested tasks in a single operation
 @IntelliPlanMCP batchEpic description="Multi-tenant user authentication" basePath="/path/to/project" tasks=[...]
@@ -102,4 +98,4 @@ IntelliPlan's AI capabilities go beyond simple task tracking - it understands th
 
 ## 📄 License
 
-MIT 
+MIT

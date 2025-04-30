@@ -8,7 +8,6 @@ import { z } from "zod";
 import { registerCreateEpicTool } from "./createEpicTool.js";
 import { registerManageItemsTool } from "./manageItemsTool.js";
 import { registerExecuteItemTool } from "./executeItemTool.js";
-import { registerGeneratePlanTool } from "./generatePlanTool.js";
 import { registerGetEpicOverviewTool } from "./getEpicOverviewTool.js";
 import { registerExpandTaskTool } from "./expandTaskTool.js";
 import { registerManageTaskStorageTool } from "./manageTaskStorageTool.js";
@@ -22,7 +21,6 @@ export function registerAllTools(server: McpServer): void {
   registerCreateEpicTool(server);
   registerManageItemsTool(server);
   registerExecuteItemTool(server);
-  registerGeneratePlanTool(server);
   registerGetEpicOverviewTool(server);
   registerExpandTaskTool(server);
   registerManageTaskStorageTool(server);

@@ -239,7 +239,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                         : '';
                                     
                                     // Use markdown list format for main tasks
-                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
                                     
                                     // Add subtasks for detailed/full verbosity
                                     if ((verbosity === 'detailed' || verbosity === 'full') && task.subtasks?.length > 0) {
@@ -266,7 +266,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                         : '';
                                     
                                     // Use markdown list format for main tasks
-                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id}**: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
                                     
                                     // Add subtasks for detailed/full verbosity
                                     if ((verbosity === 'detailed' || verbosity === 'full') && task.subtasks?.length > 0) {
@@ -289,7 +289,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 output += `### Completed Tasks\n\n`;
                                 doneTasks.forEach(task => {
                                     // Use markdown list format for main tasks
-                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]}\n`;
+                                    output += `- ${getTaskStatusDisplay(task.status)} **${task.id}**: ${task.description.split('\n')[0]}\n`;
                                     
                                     // For completed tasks, only show subtasks in full verbosity
                                     if (verbosity === 'full' && task.subtasks?.length > 0) {
@@ -316,9 +316,9 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 const depEpic = getEpicById(depId);
                                 if (depEpic) {
                                     const checkmark = depEpic.status === 'done' ? '✅' : depEpic.status === 'in-progress' ? '🚧' : '⬜';
-                                    output += `- ${checkmark} EPIC **${depId.substring(0, 8)}**: ${depEpic.description.split('\n')[0]}\n`;
+                                    output += `- ${checkmark} EPIC **${depId}**: ${depEpic.description.split('\n')[0]}\n`;
                                 } else {
-                                    output += `- ❓ UNKNOWN **${depId.substring(0, 8)}**\n`;
+                                    output += `- ❓ UNKNOWN **${depId}**\n`;
                                 }
                             }
                             output += '\n';
@@ -332,12 +332,12 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                             
                             epicDependents.forEach(depEpic => {
                                 const checkmark = depEpic.status === 'done' ? '✅' : depEpic.status === 'in-progress' ? '🚧' : '⬜';
-                                output += `- ${checkmark} EPIC **${depEpic.id.substring(0, 8)}**: ${depEpic.description.split('\n')[0]}\n`;
+                                output += `- ${checkmark} EPIC **${depEpic.id}**: ${depEpic.description.split('\n')[0]}\n`;
                             });
                             
                             taskDependents.forEach(({ epic: parentEpic, task }) => {
                                 const checkmark = task.status === 'done' ? '✅' : task.status === 'in-progress' ? '🚧' : '⬜';
-                                output += `- ${checkmark} TASK **${task.id.substring(0, 8)}**: ${task.description.split('\n')[0]} (in Epic: ${parentEpic.id.substring(0, 8)})\n`;
+                                output += `- ${checkmark} TASK **${task.id}**: ${task.description.split('\n')[0]} (in Epic: ${parentEpic.id})\n`;
                             });
                             
                             output += '\n';
@@ -381,17 +381,17 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                             
                             // Use LR orientation and fixed width labels for better spacing
                             // Current epic node
-                            output += `    EPIC_${epic.id.substring(0, 8)}["${getStatusEmoji(epic.status)} Epic: ${epic.description.split('\n')[0].substring(0, 30)}${epic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
-                            output += `    class EPIC_${epic.id.substring(0, 8)} epicNode;\n`;
+                            output += `    EPIC_${epic.id}["${getStatusEmoji(epic.status)} Epic: ${epic.description.split('\n')[0].substring(0, 30)}${epic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
+                            output += `    class EPIC_${epic.id} epicNode;\n`;
                             
                             // Epic dependencies
                             if (epic.dependencies) {
                                 for (const depId of epic.dependencies) {
                                     const depEpic = getEpicById(depId);
                                     if (depEpic) {
-                                        output += `    EPIC_${depId.substring(0, 8)}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0].substring(0, 30)}${depEpic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
-                                        output += `    EPIC_${depId.substring(0, 8)} --> EPIC_${epic.id.substring(0, 8)};\n`;
-                                        output += `    class EPIC_${depId.substring(0, 8)} epicNode${depEpic.status === 'done' ? ',doneNode' : depEpic.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
+                                        output += `    EPIC_${depId}["${getStatusEmoji(depEpic.status)} Epic: ${depEpic.description.split('\n')[0].substring(0, 30)}${depEpic.description.split('\n')[0].length > 30 ? '...' : ''}"];\n`;
+                                        output += `    EPIC_${depId} --> EPIC_${epic.id};\n`;
+                                        output += `    class EPIC_${depId} epicNode${depEpic.status === 'done' ? ',doneNode' : depEpic.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
                                     }
                                 }
                             }
@@ -404,16 +404,16 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                             for (const task of tasksForDiagram) {
                                 const truncatedDesc = task.description.split('\n')[0].substring(0, 25) + 
                                     (task.description.split('\n')[0].length > 25 ? '...' : '');
-                                output += `    TASK_${task.id.substring(0, 8)}["${getStatusEmoji(task.status)} Task: ${truncatedDesc}"];\n`;
-                                output += `    EPIC_${epic.id.substring(0, 8)} --> TASK_${task.id.substring(0, 8)};\n`;
-                                output += `    class TASK_${task.id.substring(0, 8)} taskNode${task.status === 'done' ? ',doneNode' : task.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
+                                output += `    TASK_${task.id}["${getStatusEmoji(task.status)} Task: ${truncatedDesc}"];\n`;
+                                output += `    EPIC_${epic.id} --> TASK_${task.id};\n`;
+                                output += `    class TASK_${task.id} taskNode${task.status === 'done' ? ',doneNode' : task.status === 'in-progress' ? ',inProgressNode' : ''};\n`;
                             }
                             
                             // Add a note if tasks were omitted
                             if (epic.tasks.length > MAX_TASKS_IN_DIAGRAM) {
                                 const remainingTasks = epic.tasks.length - MAX_TASKS_IN_DIAGRAM;
                                 output += `    MORE["...and ${remainingTasks} more tasks"];\n`;
-                                output += `    EPIC_${epic.id.substring(0, 8)} --> MORE;\n`;
+                                output += `    EPIC_${epic.id} --> MORE;\n`;
                                 output += `    class MORE taskNode;\n`;
                             }
                             
@@ -435,7 +435,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                     todoForDisplay.forEach((task: Task) => {
                                         const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
                                             (task.description.split('\n')[0].length > 30 ? '...' : '');
-                                        output += `        TODO_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                        output += `        TODO_${task.id}["${truncatedDesc}"];\n`;
                                     });
                                     
                                     // Add a note if tasks were omitted
@@ -452,7 +452,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                     inProgressForDisplay.forEach((task: Task) => {
                                         const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
                                             (task.description.split('\n')[0].length > 30 ? '...' : '');
-                                        output += `        INPROGRESS_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                        output += `        INPROGRESS_${task.id}["${truncatedDesc}"];\n`;
                                     });
                                     
                                     // Add a note if tasks were omitted
@@ -469,7 +469,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                     doneForDisplay.forEach((task: Task) => {
                                         const truncatedDesc = task.description.split('\n')[0].substring(0, 30) + 
                                             (task.description.split('\n')[0].length > 30 ? '...' : '');
-                                        output += `        DONE_${task.id.substring(0, 8)}["${truncatedDesc}"];\n`;
+                                        output += `        DONE_${task.id}["${truncatedDesc}"];\n`;
                                     });
                                     
                                     // Add a note if tasks were omitted
@@ -510,7 +510,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                                     const targetPrefix = task.status === 'done' ? 'DONE' : 
                                                                       task.status === 'in-progress' ? 'INPROGRESS' : 'TODO';
                                                     
-                                                    output += `    ${sourcePrefix}_${depId.substring(0, 8)} --> ${targetPrefix}_${task.id.substring(0, 8)};\n`;
+                                                    output += `    ${sourcePrefix}_${depId} --> ${targetPrefix}_${task.id};\n`;
                                                 }
                                             }
                                         }
@@ -600,7 +600,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 const blockers = epic.dependencies
                                     .map(depId => getEpicById(depId))
                                     .filter(dep => dep && dep.status !== 'done')
-                                    .map(dep => `${dep?.id.substring(0, 8)}: ${dep?.description.split('\n')[0]}`);
+                                    .map(dep => `${dep?.id}: ${dep?.description.split('\n')[0]}`);
                                 
                                 if (blockers.length > 0) {
                                     suggestion += "⚠️ This Epic is blocked by:\n\n";
@@ -619,7 +619,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                     const subtaskProgress = task.subtasks?.length > 0 
                                         ? `(${task.subtasks.filter(s => s.status === 'done').length}/${task.subtasks.length} subtasks)` 
                                         : '';
-                                    suggestion += `- ${task.id.substring(0, 8)}: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
+                                    suggestion += `- ${task.id}: ${task.description.split('\n')[0]} ${subtaskProgress}\n`;
                                 });
                                 suggestion += "\n";
                             }
@@ -640,7 +640,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 if (unblocked.length > 0) {
                                     suggestion += "✅ **Ready to start tasks:**\n\n";
                                     unblocked.forEach(task => {
-                                        suggestion += `- ${task.id.substring(0, 8)}: ${task.description.split('\n')[0]}\n`;
+                                        suggestion += `- ${task.id}: ${task.description.split('\n')[0]}\n`;
                                     });
                                     suggestion += "\n";
                                 }
@@ -658,7 +658,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 if (blocked.length > 0) {
                                     suggestion += "⏳ **Blocked tasks (dependencies not satisfied):**\n\n";
                                     blocked.forEach(task => {
-                                        suggestion += `- ${task.id.substring(0, 8)}: ${task.description.split('\n')[0]}\n`;
+                                        suggestion += `- ${task.id}: ${task.description.split('\n')[0]}\n`;
                                     });
                                     suggestion += "\n";
                                 }
@@ -678,7 +678,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 suggestion += "🚧 **Continue working on these in-progress Epics:**\n\n";
                                 inProgressEpics.forEach(epic => {
                                     const completion = calculateEpicCompletion(epic);
-                                    suggestion += `- ${epic.id.substring(0, 8)}: ${epic.description.split('\n')[0]} (${completion.percentage}% complete)\n`;
+                                    suggestion += `- ${epic.id}: ${epic.description.split('\n')[0]} (${completion.percentage}% complete)\n`;
                                 });
                                 suggestion += "\n";
                             }
@@ -698,7 +698,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 if (unblocked.length > 0) {
                                     suggestion += "✅ **Ready to start Epics:**\n\n";
                                     unblocked.forEach(epic => {
-                                        suggestion += `- ${epic.id.substring(0, 8)}: ${epic.description.split('\n')[0]}\n`;
+                                        suggestion += `- ${epic.id}: ${epic.description.split('\n')[0]}\n`;
                                     });
                                     suggestion += "\n";
                                 }
@@ -714,14 +714,14 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 if (blocked.length > 0) {
                                     suggestion += "⏳ **Blocked Epics (dependencies not satisfied):**\n\n";
                                     blocked.forEach(epic => {
-                                        suggestion += `- ${epic.id.substring(0, 8)}: ${epic.description.split('\n')[0]}\n`;
+                                        suggestion += `- ${epic.id}: ${epic.description.split('\n')[0]}\n`;
                                         
                                         // List blockers
                                         if (epic.dependencies) {
                                             const blockers = epic.dependencies
                                                 .map(depId => getEpicById(depId))
                                                 .filter(dep => dep && dep.status !== 'done')
-                                                .map(dep => `${dep?.id.substring(0, 8)}: ${dep?.description.split('\n')[0]}`);
+                                                .map(dep => `${dep?.id}: ${dep?.description.split('\n')[0]}`);
                                             
                                             if (blockers.length > 0) {
                                                 blockers.forEach(blocker => {
@@ -789,9 +789,9 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                                 for (const depId of pendingDependencies) {
                                     const dep = getEpicById(depId);
                                     if (dep) {
-                                        report += `- ${dep.id.substring(0, 8)}: ${dep.description.split('\n')[0]} (${dep.status})\n`;
+                                        report += `- ${dep.id}: ${dep.description.split('\n')[0]} (${dep.status})\n`;
                                     } else {
-                                        report += `- ${depId.substring(0, 8)}: Unknown dependency\n`;
+                                        report += `- ${depId}: Unknown dependency\n`;
                                     }
                                 }
                                 report += `\n`;
@@ -805,7 +805,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
                         if (incompleteTasks.length > 0) {
                             report += `### Incomplete Tasks\n\n`;
                             incompleteTasks.forEach(task => {
-                                report += `- ${getStatusEmoji(task.status)} ${task.id.substring(0, 8)}: ${task.description.split('\n')[0]}\n`;
+                                report += `- ${getStatusEmoji(task.status)} ${task.id}: ${task.description.split('\n')[0]}\n`;
                             });
                             report += `\n`;
                         }
