@@ -12,6 +12,7 @@ import { registerGeneratePlanTool } from "./generatePlanTool.js";
 import { registerGetEpicOverviewTool } from "./getEpicOverviewTool.js";
 import { registerExpandTaskTool } from "./expandTaskTool.js";
 import { registerManageTaskStorageTool } from "./manageTaskStorageTool.js";
+import { registerPlanEpicTool } from "./planEpicTool.js";
 
 /**
  * Registers all application tools with the MCP server
@@ -24,4 +25,5 @@ export function registerAllTools(server: McpServer): void {
   registerGetEpicOverviewTool(server);
   registerExpandTaskTool(server);
   registerManageTaskStorageTool(server);
+  registerPlanEpicTool(server);
 } 
