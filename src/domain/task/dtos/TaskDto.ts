@@ -1,9 +1,26 @@
-import type { Task, Subtask, TaskFile } from '../entities/Task.js';
+import {
+  type Epic, 
+  type Task, 
+  type Subtask, 
+  type AssociatedFile,
+  type Status,
+  type Priority
+} from '../entities/Task.js';
 
 /**
  * Task Data Transfer Objects
  * Used for transferring task data between layers
  */
+
+/**
+ * Status options for Tasks and Epics
+ */
+export type StatusDto = 'todo' | 'in-progress' | 'done';
+
+/**
+ * Priority levels for Tasks and Epics
+ */
+export type PriorityDto = 'low' | 'medium' | 'high';
 
 /**
  * Basic task details for list views
@@ -42,9 +59,8 @@ export interface TaskDetailDto {
  */
 export interface SubtaskDto {
   id: string;
-  shortId: string;
   description: string;
-  status: string;
+  status: 'todo' | 'done';
   createdAt: string;
 }
 
@@ -94,6 +110,79 @@ export interface TaskOverviewDto {
 }
 
 /**
+ * Associated file representation
+ */
+export interface AssociatedFileDto {
+  filePath: string;
+  description?: string;
+  addedAt: string;
+}
+
+/**
+ * Task representation (nested within an Epic)
+ */
+export interface TaskDto {
+  id: string;
+  description: string;
+  status: StatusDto;
+  priority?: PriorityDto;
+  complexity?: number;
+  createdAt: string;
+  updatedAt: string;
+  subtasks: SubtaskDto[];
+  files: AssociatedFileDto[];
+  dependencies?: string[];
+  testStrategy?: string;
+  implementationPlan?: string;
+}
+
+/**
+ * Epic representation (top-level)
+ */
+export interface EpicDto {
+  id: string;
+  description: string;
+  status: StatusDto;
+  priority?: PriorityDto;
+  complexity?: number;
+  createdAt: string;
+  updatedAt: string;
+  tasks: TaskDto[]; // Epics contain Tasks
+  files: AssociatedFileDto[];
+  dependencies?: string[];
+  testStrategy?: string;
+  implementationPlan?: string;
+}
+
+/**
+ * Request DTO for creating an Epic
+ */
+export interface CreateEpicRequestDto {
+  description: string;
+  priority?: PriorityDto;
+  // ... other fields as needed
+}
+
+/**
+ * Request DTO for creating a Task
+ */
+export interface CreateTaskRequestDto {
+  epicId: string;
+  description: string;
+  priority?: PriorityDto;
+  // ... other fields as needed
+}
+
+/**
+ * Request DTO for creating a Subtask
+ */
+export interface CreateSubtaskRequestDto {
+  epicId: string;
+  taskId: string;
+  description: string;
+}
+
+/**
  * Helper functions to convert between entity and DTO
  */
 export class TaskMapper {
@@ -139,7 +228,6 @@ export class TaskMapper {
   static toSubtaskDto(subtask: Subtask): SubtaskDto {
     return {
       id: subtask.id,
-      shortId: subtask.id.substring(0, 8),
       description: subtask.description,
       status: subtask.status,
       createdAt: subtask.createdAt
@@ -149,7 +237,7 @@ export class TaskMapper {
   /**
    * Convert a TaskFile entity to a TaskFileDto
    */
-  static toFileDto(file: TaskFile): TaskFileDto {
+  static toFileDto(file: AssociatedFile): TaskFileDto {
     return {
       filePath: file.filePath,
       description: file.description,

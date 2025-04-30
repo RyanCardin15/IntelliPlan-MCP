@@ -4,7 +4,26 @@
  */
 
 /**
- * Represents a subtask within a parent task
+ * Status options for Tasks and Epics
+ */
+export type Status = 'todo' | 'in-progress' | 'done';
+
+/**
+ * Priority levels for Tasks and Epics
+ */
+export type Priority = 'low' | 'medium' | 'high';
+
+/**
+ * Represents a file attached to a Task or Epic
+ */
+export interface AssociatedFile {
+  filePath: string;
+  description?: string;
+  addedAt: string;
+}
+
+/**
+ * Represents a Subtask nested within a Task
  */
 export interface Subtask {
   id: string;
@@ -14,30 +33,46 @@ export interface Subtask {
 }
 
 /**
- * Represents a file attached to a task
- */
-export interface TaskFile {
-  filePath: string;
-  description?: string;
-  addedAt: string;
-}
-
-/**
- * The main Task entity that represents a unit of work
+ * Represents a Task nested within an Epic
  */
 export interface Task {
   id: string;
   description: string;
-  status: 'todo' | 'in-progress' | 'done';
-  priority?: 'low' | 'medium' | 'high';
+  status: Status;
+  priority?: Priority;
   complexity?: number;
   createdAt: string;
   updatedAt: string;
   subtasks: Subtask[];
-  files: TaskFile[];
+  files: AssociatedFile[];
   dependencies?: string[];
   testStrategy?: string;
   implementationPlan?: string;
+}
+
+/**
+ * The main Epic entity that represents a large unit of work
+ */
+export interface Epic {
+  id: string;
+  description: string;
+  status: Status;
+  priority?: Priority;
+  complexity?: number;
+  createdAt: string;
+  updatedAt: string;
+  tasks: Task[]; // Epics contain Tasks
+  files: AssociatedFile[];
+  dependencies?: string[]; // Epic dependencies
+  testStrategy?: string;
+  implementationPlan?: string;
+}
+
+/**
+ * A hash map of Epic IDs to Epics
+ */
+export interface EpicStore {
+  [id: string]: Epic;
 }
 
 /**

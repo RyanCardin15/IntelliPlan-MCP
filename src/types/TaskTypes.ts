@@ -1,47 +1,47 @@
 // src/types.ts
 
 /**
- * Task status options
+ * Status options for Tasks and Epics
  */
-export type TaskStatus = 'todo' | 'in-progress' | 'done';
+export type Status = 'todo' | 'in-progress' | 'done';
 
 /**
- * Subtask definition
+ * Priority levels for Tasks and Epics
+ */
+export type Priority = 'low' | 'medium' | 'high';
+
+/**
+ * Subtask definition (nested within a Task)
  */
 export interface Subtask {
     id: string;
     description: string;
-    status: 'todo' | 'done';
+    status: 'todo' | 'done'; // Subtasks are simpler
     createdAt: string;
 }
 
 /**
- * File information attached to a task
+ * Associated file information
  */
-export interface TaskFile {
+export interface AssociatedFile {
     filePath: string;
     description?: string;
     addedAt: string;
 }
 
 /**
- * Task priority levels
- */
-export type TaskPriority = 'low' | 'medium' | 'high';
-
-/**
- * Core Task entity
+ * Task definition (nested within an Epic)
  */
 export interface Task {
     id: string;
     description: string;
-    status: TaskStatus;
-    priority?: TaskPriority;
+    status: Status;
+    priority?: Priority;
     createdAt: string;
     updatedAt: string;
-    files: TaskFile[];
-    subtasks: Subtask[]; // Added subtasks array
-    dependencies?: string[]; // IDs of tasks this task depends on
+    files: AssociatedFile[];
+    subtasks: Subtask[]; // Tasks can have subtasks
+    dependencies?: string[]; // IDs of Tasks or Epics this Task depends on
     testStrategy?: string;
     complexity?: number; // Estimated complexity score (1-10)
     implementationPlan?: string; // Detailed implementation plan
@@ -51,8 +51,32 @@ export interface Task {
 }
 
 /**
- * Task store maps task ID to task object
+ * Core Epic entity (top-level)
  */
-export interface TaskStore {
-    [taskId: string]: Task;
-} 
+export interface Epic {
+    id: string;
+    description: string;
+    status: Status;
+    priority?: Priority;
+    createdAt: string;
+    updatedAt: string;
+    files: AssociatedFile[]; // Files associated directly with the Epic
+    tasks: Task[]; // Epics contain Tasks
+    dependencies?: string[]; // IDs of Epics this Epic depends on
+    testStrategy?: string; // Overall test strategy for the Epic
+    complexity?: number; // Estimated complexity score (1-10)
+    implementationPlan?: string; // Overall plan for the Epic
+    tags?: string[];
+    details?: string; // High-level details for the Epic
+    dueDate?: string; // ISO date string
+}
+
+/**
+ * Epic store maps Epic ID to Epic object
+ */
+export interface EpicStore {
+    [epicId: string]: Epic;
+}
+
+// Add a dummy value export to ensure the compiled JS file is not empty
+export const _dummy = 0; 

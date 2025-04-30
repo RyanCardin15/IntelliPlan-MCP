@@ -1,9 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { taskIdSchema, descriptionSchema } from "../schemas/commonSchemas.js";
-// Import necessary functions/types...
-import { getTaskById, getTasks } from "../../infrastructure/storage/TaskStorageService.js";
-import type { Task } from "../../types/TaskTypes.js";
+// Correct imports
+import { getEpicById, getTaskById, getEpics, configureStorage, loadEpics } from "../../infrastructure/storage/TaskStorageService.js";
+import type { Epic, Task } from "../../domain/task/entities/Task.js";
 
 const generatePlanTypeSchema = z.enum([
     'newTask', 
@@ -18,7 +18,14 @@ const generatePlanSchema = z.object({
     taskId: taskIdSchema.optional().describe("Task ID (required for most types except 'newTask')"),
     description: descriptionSchema.optional().describe("Initial description (required for 'newTask')"),
     stepIndex: z.number().optional().describe("Step index (for 'stepByStepAnalysis')"),
-    implementationDescription: descriptionSchema.optional().describe("Description of implementation change (for 'implementationDrift')")
+    implementationDescription: descriptionSchema.optional().describe("Description of implementation change (for 'implementationDrift')"),
+    epicId: z.string().uuid().optional().describe("ID of the Epic containing the Task (optional, required if taskId is omitted or ambiguous)"),
+    basePath: z.string().optional().describe("Base path for the plan (optional)"),
+    includeDependencies: z.boolean().optional().describe("Include dependency context (optional)"),
+    instructions: z.string().optional().describe("Instructions for the plan (optional)"),
+    generateComplexity: z.boolean().optional().describe("Generate complexity assessment (optional)"),
+    generatePlan: z.boolean().optional().describe("Generate implementation plan (optional)"),
+    generateTestStrategy: z.boolean().optional().describe("Generate test strategy (optional)")
 });
 
 type GeneratePlanParams = z.infer<typeof generatePlanSchema>;
@@ -32,150 +39,139 @@ export function registerGeneratePlanTool(server: McpServer): void {
             taskId: taskIdSchema.optional().describe("Task ID (required for most types except 'newTask')"),
             description: descriptionSchema.optional().describe("Initial description (required for 'newTask')"),
             stepIndex: z.number().optional().describe("Step index (for 'stepByStepAnalysis')"),
-            implementationDescription: descriptionSchema.optional().describe("Description of implementation change (for 'implementationDrift')")
+            implementationDescription: descriptionSchema.optional().describe("Description of implementation change (for 'implementationDrift')"),
+            epicId: z.string().uuid().optional().describe("ID of the Epic containing the Task (optional, required if taskId is omitted or ambiguous)"),
+            basePath: z.string().optional().describe("Base path for the plan (optional)"),
+            includeDependencies: z.boolean().optional().describe("Include dependency context (optional)"),
+            instructions: z.string().optional().describe("Instructions for the plan (optional)"),
+            generateComplexity: z.boolean().optional().describe("Generate complexity assessment (optional)"),
+            generatePlan: z.boolean().optional().describe("Generate implementation plan (optional)"),
+            generateTestStrategy: z.boolean().optional().describe("Generate test strategy (optional)")
         },
         async (params: GeneratePlanParams) => {
-            const { planType, taskId, description, stepIndex, implementationDescription } = params;
+            const { planType, taskId, description, stepIndex, implementationDescription, epicId, basePath, includeDependencies, instructions, generateComplexity, generatePlan, generateTestStrategy } = params;
             
             try {
-                switch (planType) {
-                    case 'newTask': {
-                        if (!description) {
-                             return { content: [{ type: "text", text: `Error: 'description' is required for planType '${planType}'.` }], isError: true };
-                        }
-                        // Logic from old planTask
-                        const prompt = `Please plan this task thoroughly:
-TASK: ${description}
+                let targetEpic: Epic | undefined;
+                let targetTask: Task | undefined;
+                let currentTaskId = taskId; // Task ID being planned
 
-1. Goal?
-2. Steps?
-3. Acceptance Criteria?
-4. Effort (S/M/L)?
-5. Priority (L/M/H)?
-6. Test Strategy?
-
-Use \`createTask\` with the appropriate parameters.`;
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'newTask'
-
-                    case 'implementation': {
-                        if (!taskId) {
-                             return { content: [{ type: "text", text: `Error: 'taskId' is required for planType '${planType}'.` }], isError: true };
+                // --- Determine Target --- 
+                if (currentTaskId) {
+                    const result = getTaskById(currentTaskId);
+                    if (result) {
+                        targetEpic = result.epic;
+                        targetTask = result.task;
+                        if (epicId && targetEpic.id !== epicId) {
+                             return { content: [{ type: "text", text: `Error: Task ${currentTaskId} found, but not within specified Epic ${epicId}.` }], isError: true };
                         }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Task ${taskId} not found.` }], isError: true };
-                        
-                        // Logic from old createImplementationPlan
-                        let prompt = "Please create a detailed implementation plan for this task. Consider the following:\n\n";
-                        prompt += `TASK: ${task.description.split('\n')[0]}\n`;
-                        if (task.description.includes('\n')) prompt += `\nDETAILS:\n${task.description.split('\n').slice(1).join('\n')}\n`;
-                        if (task.subtasks && task.subtasks.length > 0) {
-                            prompt += "\nEXISTING SUBTASKS:\n";
-                            task.subtasks.forEach((st, i) => { prompt += `${i+1}. ${st.description} [${st.status}]\n`; });
-                        }
-                        prompt += "\nYour implementation plan should include:\n";
-                        prompt += "1. Technical approach and key considerations\n";
-                        prompt += "2. Implementation steps in sequence\n";
-                        prompt += "3. Testing strategy\n";
-                        prompt += "4. Potential risks and mitigations\n\n";
-                        prompt += "After creating your plan, update the task with the implementation plan using:\n";
-                        prompt += `\`manageTask\` action=update, taskId=${taskId}, and description=[new description including plan]\`;`;
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'implementation'
-                    
-                    case 'complexityAnalysis': {
-                        if (!taskId) {
-                             return { content: [{ type: "text", text: `Error: 'taskId' is required for planType '${planType}'.` }], isError: true };
-                        }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Task ${taskId} not found.` }], isError: true };
-                        
-                        // Logic from old analyzeTask complexity mode
-                        let prompt = "Please analyze the complexity of this task, considering factors like ambiguity, dependencies, number of steps/subtasks, required knowledge, and potential risks. Provide a complexity score (1-10) and justification.\n\n";
-                        prompt += `--- TASK: ${task.id.substring(0, 8)} ---\n`;
-                        prompt += `Description: ${task.description.split('\n')[0]}\n`;
-                        if (task.description.includes('\n')) prompt += `Details Snippet: ${task.description.split('\n').slice(1).join('\n').substring(0, 200)}...\n`;
-                        if (task.subtasks?.length > 0) prompt += `Subtasks: ${task.subtasks.length}\n`;
-                        if (task.dependencies && task.dependencies.length > 0) prompt += `Dependencies: ${task.dependencies.length}\n`;
-                        if (task.complexity) prompt += `Current Complexity Score: ${task.complexity}/10\n`;
-                        prompt += `\nRespond with:\n- Complexity Score (1-10): [Score]\n- Justification: [Reasoning]\n\nUse \`manageTask\` action=update with taskId=${taskId} and complexity=[Score] to record your assessment.\`;`;
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'complexityAnalysis'
-
-                    case 'stepByStepAnalysis': {
-                         if (!taskId) {
-                             return { content: [{ type: "text", text: `Error: 'taskId' is required for planType '${planType}'.` }], isError: true };
-                        }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Task ${taskId} not found.` }], isError: true };
-                        
-                        // Logic from old analyzeTask step-by-step mode
-                        const steps = [
-                            "What is the core problem this task is trying to solve?",
-                            "What are the key components or pieces of this task?",
-                            "What technical dependencies might this task have?",
-                            "What might be challenging about implementing this task?",
-                            "What would a good solution look like for this task?"
-                        ];
-                        const currentStep = stepIndex !== undefined ? stepIndex : 0;
-                        if (currentStep >= 0 && currentStep < steps.length) {
-                            let prompt = `Step ${currentStep + 1}/${steps.length}: ${steps[currentStep]}\n\n`;
-                            prompt += `Task: ${task.description.split('\n')[0]}\n\n`;
-                            if (currentStep < steps.length - 1) {
-                                prompt += `Consider this question carefully, then respond. When ready for the next step, use \`generatePlan\` with planType=stepByStepAnalysis, taskId=${taskId}, and stepIndex=${currentStep + 1}\`;`;
-                            } else {
-                                prompt += "This is the final step. After considering this question, you can formulate a complete implementation plan (e.g., using \`generatePlan\` with planType=implementation).";
-                            }
-                            return { content: [{ type: "text", text: prompt }] };
-                        } else {
-                            return { content: [{ type: "text", text: `Invalid step index: ${stepIndex}. Must be between 0 and ${steps.length - 1}.` }], isError: true };
-                        }
-                    } // End case 'stepByStepAnalysis'
-
-                    case 'implementationDrift': {
-                         if (!taskId) {
-                             return { content: [{ type: "text", text: `Error: 'taskId' is required for planType '${planType}'.` }], isError: true };
-                        }
-                         if (!implementationDescription) {
-                             return { content: [{ type: "text", text: `Error: 'implementationDescription' is required for planType '${planType}'.` }], isError: true };
-                        }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Task ${taskId} not found.` }], isError: true };
-                        
-                        // Logic from old updateTasksFromImplementation
-                        const allTasks = getTasks();
-                        const findDependentTasks = (currentTaskId: string, visited = new Set<string>()): string[] => {
-                            if (visited.has(currentTaskId)) return [];
-                            visited.add(currentTaskId);
-                            const directDependents = allTasks.filter(t => t.dependencies && t.dependencies.includes(currentTaskId)).map(t => t.id);
-                            const allDependents = [...directDependents];
-                            for (const depId of directDependents) {
-                                allDependents.push(...findDependentTasks(depId, visited));
-                            }
-                            return Array.from(new Set(allDependents)); // Ensure unique IDs
-                        };
-                        
-                        const dependentTaskIds = findDependentTasks(taskId);
-                        const affectedTasks = [taskId, ...dependentTaskIds];
-                        
-                        let prompt = `Implementation approach change detected for task ${taskId.substring(0, 8)}: "${implementationDescription}"\n\n`;
-                        prompt += `This potentially affects ${affectedTasks.length} task(s) (including itself and dependents):\n`;
-                        for (const affTaskId of affectedTasks) {
-                            const t = getTaskById(affTaskId);
-                            if (t) prompt += `- ${affTaskId.substring(0, 8)}: ${t.description.split('\n')[0]}\n`;
-                        }
-                        prompt += "\nPlease review each affected task. Consider if updates are needed for:\n";
-                        prompt += "1. Description (\`manageTask\` action=update, description=...)\`\n";
-                        prompt += "2. Subtasks (\`manageTask\` actions like updateSubtask, createSubtask, deleteSubtask)\`\n";
-                        prompt += "3. Dependencies (\`manageTask\` actions like addDependency, removeDependency)\`\n";
-                        prompt += "4. Status, Priority, Complexity (\`manageTask\` action=update)\`\n";
-                        prompt += "Start with the original task and work through dependents.";
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'implementationDrift'
-
-                    default:
-                        return { content: [{ type: "text", text: `Error: Unknown planType '${planType}'.` }], isError: true };
+                    } else if (epicId) {
+                         targetEpic = getEpicById(epicId);
+                         if (targetEpic) targetTask = targetEpic.tasks.find(t => t.id === currentTaskId);
+                    }
+                     if (!targetEpic || !targetTask) {
+                        return { content: [{ type: "text", text: `Error: Could not find Task ${currentTaskId}. Specify epicId if known.` }], isError: true };
+                    }
+                } else if (epicId) {
+                     targetEpic = getEpicById(epicId);
+                     if (!targetEpic) return { content: [{ type: "text", text: `Error: Epic ${epicId} not found.` }], isError: true };
+                     // Plan the Epic itself if no Task ID given
+                } else {
+                     return { content: [{ type: "text", text: "Error: Either epicId or taskId must be provided." }], isError: true };
                 }
+
+                // --- Build Prompt --- 
+                let prompt = `Generate a plan for the following ${targetTask ? 'Task' : 'Epic'}:\n\n`;
+                prompt += `BASE PATH: ${basePath}\n`;
+                prompt += `EPIC ID: ${targetEpic.id}\n`;
+
+                if (targetTask) {
+                     // Task context
+                     prompt += `TASK ID: ${targetTask.id}\n`;
+                     prompt += `Description: ${targetTask.description.split('\n')[0]}\n`;
+                     if (targetTask.description.includes('\n')) prompt += `Details Snippet: ${targetTask.description.split('\n').slice(1).join('\n').substring(0, 200)}...\n`;
+                     if (targetTask.subtasks?.length > 0) prompt += `Subtasks: ${targetTask.subtasks.length}\n`;
+                     if (targetTask.dependencies && targetTask.dependencies.length > 0) prompt += `Dependencies: ${targetTask.dependencies.length}\n`;
+                     if (targetTask.complexity) prompt += `Current Complexity Score: ${targetTask.complexity}/10\n`;
+                     if (targetTask.implementationPlan) prompt += `\nEXISTING PLAN:\n${targetTask.implementationPlan}\n`;
+                     if (targetTask.testStrategy) prompt += `\nEXISTING TEST STRATEGY:\n${targetTask.testStrategy}\n`;
+
+                } else { 
+                     // Epic context
+                     prompt += `Description: ${targetEpic.description.split('\n')[0]}\n`;
+                     if (targetEpic.description.includes('\n')) prompt += `Details Snippet: ${targetEpic.description.split('\n').slice(1).join('\n').substring(0, 200)}...\n`;
+                     if (targetEpic.tasks?.length > 0) prompt += `Tasks: ${targetEpic.tasks.length}\n`;
+                     if (targetEpic.dependencies && targetEpic.dependencies.length > 0) prompt += `Dependencies: ${targetEpic.dependencies.length}\n`;
+                     if (targetEpic.complexity) prompt += `Current Complexity Score: ${targetEpic.complexity}/10\n`;
+                     if (targetEpic.implementationPlan) prompt += `\nEXISTING PLAN:\n${targetEpic.implementationPlan}\n`;
+                     if (targetEpic.testStrategy) prompt += `\nEXISTING TEST STRATEGY:\n${targetEpic.testStrategy}\n`;
+                }
+
+                // --- Add Dependency Context --- 
+                if (includeDependencies) {
+                     prompt += "\n--- DEPENDENCY CONTEXT ---\n";
+                     const allEpics = getEpics();
+                     const allTasks: Task[] = allEpics.flatMap(e => e.tasks);
+
+                     let dependencies: string[] = [];
+                     if (targetTask?.dependencies) {
+                         dependencies = targetTask.dependencies;
+                     } else if (targetEpic?.dependencies) {
+                         dependencies = targetEpic.dependencies;
+                     }
+
+                     if (dependencies.length > 0) {
+                         prompt += "Depends On:\n";
+                         dependencies.forEach(depId => {
+                             const depTaskResult = getTaskById(depId);
+                             const depEpic = getEpicById(depId);
+                             if (depTaskResult) {
+                                 prompt += `- TASK ${depId.substring(0, 8)}: ${depTaskResult.task.description.split('\n')[0]} [${depTaskResult.task.status}]\n`;
+                             } else if (depEpic) {
+                                  prompt += `- EPIC ${depId.substring(0, 8)}: ${depEpic.description.split('\n')[0]} [${depEpic.status}]\n`;
+                             } else {
+                                 prompt += `- UNKNOWN ${depId.substring(0, 8)}\n`;
+                             }
+                         });
+                     } else {
+                         prompt += "No direct dependencies listed.\n";
+                     }
+                     
+                     // Find direct dependents (items that depend on *this* item)
+                     const currentItemId = targetTask?.id || targetEpic?.id;
+                     if (currentItemId) {
+                        const directDependents = allTasks.filter(t => t.dependencies?.includes(currentItemId));
+                        const directEpicDependents = allEpics.filter(e => e.dependencies?.includes(currentItemId));
+                        
+                        if (directDependents.length > 0 || directEpicDependents.length > 0) {
+                            prompt += "\nDepended On By:\n";
+                            directDependents.forEach(t => {
+                                prompt += `- TASK ${t.id.substring(0, 8)}: ${t.description.split('\n')[0]} [${t.status}]\n`;
+                            });
+                            directEpicDependents.forEach(e => {
+                                prompt += `- EPIC ${e.id.substring(0, 8)}: ${e.description.split('\n')[0]} [${e.status}]\n`;
+                            });
+                        } else {
+                             prompt += "\nNot directly depended on by any listed item.\n";
+                        }
+                     } 
+                }
+                
+                prompt += "\n--- INSTRUCTIONS ---\n";
+                prompt += `${instructions}\n`;
+                if (generateComplexity) prompt += "\nEstimate complexity (1-10). Provide only the number.";
+                if (generatePlan) prompt += "\nGenerate a concise implementation plan.";
+                if (generateTestStrategy) prompt += "\nGenerate a concise test strategy.";
+                prompt += "\nProvide ONLY the requested information.";
+
+                return {
+                    content: [{ type: "text", text: prompt }],
+                    metadata: { 
+                        epicId: targetEpic.id,
+                        taskId: targetTask?.id, 
+                        itemType: targetTask ? "Task" : "Epic" 
+                    }
+                };
             } catch (error: any) {
                  return { 
                     content: [{ type: "text", text: `Error performing action '${planType}': ${error.message}` }],

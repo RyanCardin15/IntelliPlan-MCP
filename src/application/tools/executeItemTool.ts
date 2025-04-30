@@ -91,7 +91,7 @@ export function registerExecuteItemTool(server: McpServer): void {
                     return { content: [{ type: "text", text: `Error: Epic ${resolvedEpicId} not found.` }], isError: true };
                 }
                 // Find next Task logic (simplified: first in-progress or first todo)
-                targetTask = targetEpic.tasks.find((t: Task) => t.status === 'in-progress') || targetEpic.tasks.find((t: Task) => t.status === 'todo');
+                targetTask = targetEpic.tasks.find(t => t.status === 'in-progress') || targetEpic.tasks.find(t => t.status === 'todo');
                 if (!targetTask) {
                     return { content: [{ type: "text", text: `No executable Tasks found in Epic ${resolvedEpicId}.` }] };
                 }
@@ -171,7 +171,7 @@ export function registerExecuteItemTool(server: McpServer): void {
                 itemToExecute.updatedAt = new Date().toISOString();
                 if (targetTask && resolvedEpicId) {
                     // Need to update the Task within the Epic
-                    const taskIndex = targetEpic.tasks.findIndex((t: Task) => t.id === resolvedTaskId);
+                    const taskIndex = targetEpic.tasks.findIndex(t => t.id === resolvedTaskId);
                     if (taskIndex !== -1) {
                         targetEpic.tasks[taskIndex] = targetTask; // targetTask already has status updated
                         updateEpicStore(resolvedEpicId, targetEpic);
@@ -197,7 +197,7 @@ export function registerExecuteItemTool(server: McpServer): void {
                 if (targetTask && targetTask.subtasks.length > 0) {
                     responseText += ` Focus on completing its subtasks: ${targetTask.subtasks.map(s=>s.id.substring(0,4)).join(', ')}.`;
                 } else if (itemType === "Epic" && targetEpic.tasks.length > 0) {
-                     responseText += ` Focus on completing its Tasks: ${targetEpic.tasks.map((t: Task)=>t.id.substring(0,4)).join(', ')}.`;
+                     responseText += ` Focus on completing its Tasks: ${targetEpic.tasks.map(t=>t.id.substring(0,4)).join(', ')}.`;
                 }
             } else if (executionMode === 'subtasks') {
                  if (targetTask && targetTask.subtasks.length > 0) {

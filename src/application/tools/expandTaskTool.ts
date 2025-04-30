@@ -7,8 +7,8 @@ import {
     subtaskIdSchema 
 } from "../schemas/commonSchemas.js";
 // Import necessary functions/types...
-import { getTasks, getTaskById } from "../../infrastructure/storage/TaskStorageService.js";
-import type { Task } from "../../types/TaskTypes.js";
+import { getEpics, getEpicById, getTaskById, getSubtaskById, updateEpicStore, saveEpics, configureStorage, loadEpics } from "../../infrastructure/storage/TaskStorageService.js";
+import type { Epic, Task, Subtask } from "../../domain/task/entities/Task.js"; // Assuming types are now here
 // Example: import { v4 as uuidv4 } from 'uuid'; // Not needed if only generating prompts
 
 const expandModeSchema = z.enum([
@@ -17,145 +17,212 @@ const expandModeSchema = z.enum([
     'findExpandable'
 ]);
 
+const epicIdSchema = z.string().uuid().optional().describe("ID of the Epic containing the Task/Subtask (optional, will try to find task otherwise)");
+const taskIdSchemaRevised = z.string().uuid().optional().describe("ID of the Task to expand (optional, suggests first expandable)");
+const subtaskIdSchemaRevised = z.string().uuid().optional().describe("ID of the Subtask to expand (optional, within the specified task)");
+
 const expandTaskSchema = z.object({
     mode: expandModeSchema.describe("Expansion mode (required)"),
-    taskId: taskIdSchema.optional().describe("Task ID (required for 'expandSpecificTask')"),
-    subtaskId: subtaskIdSchema.optional().describe("Subtask ID (required for 'expandSpecificSubtask')"),
+    epicId: epicIdSchema,
+    taskId: taskIdSchemaRevised,
+    subtaskId: subtaskIdSchemaRevised,
     count: z.number().optional().default(5).describe("Number of subtasks to suggest (for prompts)"),
     minSubtasks: z.number().optional().default(3).describe("Min subtasks threshold (for 'findExpandable')"),
     maxSubtasks: z.number().optional().default(5).describe("Max subtasks threshold (for 'findExpandable')"),
     // Keep batch parameters for expandSpecificTask mode
     batchIndex: z.number().optional().describe("Current task index in a batch expansion"),
     batchSize: z.number().optional().describe("Total number of tasks in the batch"),
-    taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch")
+    taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch"),
+    instructions: z.string().default("Break down the item into smaller, actionable sub-items (subtasks for a task, tasks for an epic).").describe("Specific instructions for expansion"),
+    basePath: z.string().describe("Base directory path for storage (required)")
 });
 
 type ExpandTaskParams = z.infer<typeof expandTaskSchema>;
 
 export function registerExpandTaskTool(server: McpServer): void {
     server.tool(
-        "expandTask",
-        "Guides breakdown of tasks/subtasks or finds candidates for breakdown.",
+        "expandItem",
+        "Helps break down an Epic, Task, or Subtask into smaller items.",
         {
             mode: expandModeSchema.describe("Expansion mode (required)"),
-            taskId: taskIdSchema.optional().describe("Task ID (for 'expandSpecificTask')"),
-            subtaskId: subtaskIdSchema.optional().describe("Subtask ID (for 'expandSpecificSubtask')"),
+            epicId: epicIdSchema,
+            taskId: taskIdSchemaRevised,
+            subtaskId: subtaskIdSchemaRevised,
             count: z.number().optional().default(5).describe("Number of subtasks to suggest (for prompts)"),
             minSubtasks: z.number().optional().default(3).describe("Min subtasks threshold (for 'findExpandable')"),
             maxSubtasks: z.number().optional().default(5).describe("Max subtasks threshold (for 'findExpandable')"),
             batchIndex: z.number().optional().describe("Current task index in a batch expansion"),
             batchSize: z.number().optional().describe("Total number of tasks in the batch"),
-            taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch")
+            taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch"),
+            instructions: z.string(),
+            basePath: z.string()
         },
         async (params: ExpandTaskParams) => {
-            const { mode, taskId, subtaskId, count, minSubtasks, maxSubtasks, batchIndex, batchSize, taskIds } = params;
+            const { 
+                mode, 
+                epicId, 
+                taskId, 
+                subtaskId,
+                count, 
+                minSubtasks, 
+                maxSubtasks,
+                batchIndex, 
+                batchSize, 
+                taskIds,
+                instructions = "Break down the item into smaller, actionable sub-items (subtasks for a task, tasks for an epic).", 
+                basePath 
+            } = params;
+            
+            let suggestionMessage = "";
 
-            try {
-                switch (mode) {
-                    case 'findExpandable': {
-                        // Logic from old findExpandableTasks
-                        const tasks = getTasks();
-                        
-                        // Filter tasks that are not done and meet subtask count criteria
-                        const expandableTasks = tasks.filter(task => 
-                            task.status !== 'done' &&
-                            task.subtasks.length >= (minSubtasks ?? 3) && 
-                            task.subtasks.length < (maxSubtasks ?? 5) // Use defaults if null
-                        );
-                        
-                        if (expandableTasks.length === 0) {
-                            return { content: [{ type: "text", text: `No tasks found that are not 'done' and have between ${minSubtasks ?? 3} and ${maxSubtasks ?? 5} subtasks.` }] };
-                        }
-                        
-                        // Sort potentially by complexity or priority if desired, otherwise by creation date
-                        const sortedTasks = [...expandableTasks].sort((a, b) => { 
-                            const priorityOrder = { high: 3, medium: 2, low: 1 };
-                            const aP = a.priority ? priorityOrder[a.priority as keyof typeof priorityOrder] : 0;
-                            const bP = b.priority ? priorityOrder[b.priority as keyof typeof priorityOrder] : 0;
-                            if(aP !== bP) return bP - aP;
-                            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); 
-                        });
-                        
-                        let response = `Found ${sortedTasks.length} tasks that could potentially benefit from further breakdown:
-\n`;
-                        sortedTasks.forEach((task, index) => {
-                            response += `${index + 1}. Task ${task.id.substring(0, 8)}: (${task.status}, ${task.subtasks.length} subtasks${task.priority ? ", P:"+task.priority : ''})
-`;
-                            response += `   ${task.description.split('\n')[0]}\n\n`;
-                        });
-                        response += `To break down a task, use \`expandTask\` with mode=expandSpecificTask and the taskId.`;
-                        return { content: [{ type: "text", text: response }] };
-                    } // End case 'findExpandable'
-
-                    case 'expandSpecificTask': {
-                        // Handle batch processing first
-                        if (taskIds && taskIds.length > 0 && batchIndex !== undefined && batchSize !== undefined) {
-                             if (batchIndex < 0 || batchIndex >= taskIds.length) {
-                                return { content: [{ type: "text", text: `Error: Invalid batch index ${batchIndex}. Must be between 0 and ${taskIds.length - 1}.` }], isError: true };
-                            }
-                            const currentTaskId = taskIds[batchIndex];
-                            const task = getTaskById(currentTaskId);
-                            if (!task) return { content: [{ type: "text", text: `Error: Task ${currentTaskId} (Batch ${batchIndex + 1}/${batchSize}) not found.` }], isError: true };
-                            
-                            let prompt = `Processing Batch Task ${batchIndex + 1} of ${batchSize}:
-TASK ID: ${currentTaskId}\nDESCRIPTION: ${task.description.split('\n')[0]}\n`;
-                            if (task.description.includes('\n')) prompt += `\nDETAILS:\n${task.description.split('\n').slice(1).join('\n').substring(0, 500)}...\n`;
-                            prompt += `\nPlease break this task down into ${count ?? 5} specific, actionable subtasks. Format each as a single statement starting with an action verb.\n\n`;
-                            prompt += `When ready, use \`manageTask\` action=createSubtask with parentTaskId=${currentTaskId} and subtasks=[...]\n\n`;
-                            if (batchIndex < taskIds.length - 1) {
-                                prompt += `Then, continue with the next task using:\n`;
-                                prompt += `\`expandTask\` mode=expandSpecificTask, batchIndex=${batchIndex + 1}, batchSize=${batchSize}, taskIds=${JSON.stringify(taskIds)}`;
-                            } else {
-                                prompt += "This is the final task in the batch.";
-                            }
-                            return { content: [{ type: "text", text: prompt }] };
-                        }
-                        
-                        // Handle single task expansion
-                        if (!taskId) {
-                            return { content: [{ type: "text", text: `Error: taskId is required for mode '${mode}' when not batch processing.` }], isError: true };
-                        }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Task ${taskId} not found.` }], isError: true };
-                        
-                        let prompt = `Please break down this task into ${count ?? 5} specific subtasks:\n\n`;
-                        prompt += `TASK: ${task.description.split('\n')[0]}\n`;
-                        if (task.description.includes('\n')) prompt += `\nDETAILS:\n${task.description.split('\n').slice(1).join('\n').substring(0, 500)}...\n`;
-                        prompt += `\nProvide ${count ?? 5} specific, actionable subtasks that cover the scope. Format each as a single statement starting with an action verb.\n\n`;
-                        prompt += `When ready, use \`manageTask\` action=createSubtask with parentTaskId=${taskId} and subtasks=[...] containing your list.`;
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'expandSpecificTask'
-
-                    case 'expandSpecificSubtask': {
-                        if (!taskId || !subtaskId) {
-                             return { content: [{ type: "text", text: `Error: taskId and subtaskId are required for mode '${mode}'.` }], isError: true };
-                        }
-                        const task = getTaskById(taskId);
-                        if (!task) return { content: [{ type: "text", text: `Error: Parent Task ${taskId} not found.` }], isError: true };
-                        
-                        const subtaskToExpand = task.subtasks.find(st => st.id === subtaskId);
-                        if (!subtaskToExpand) return { content: [{ type: "text", text: `Error: Subtask ${subtaskId} not found in task ${taskId}.` }], isError: true };
-                        
-                        let prompt = `Please break down this subtask into ${count ?? 5} smaller, more specific subtasks:\n\n`;
-                        prompt += `PARENT TASK: ${task.description.split('\n')[0]}\n`;
-                        prompt += `SUBTASK TO EXPAND: ${subtaskToExpand.description}\n\n`;
-                        prompt += `Provide ${count ?? 5} specific, actionable subtasks.\n\n`;
-                        prompt += `When ready, replace the old subtask with the new ones. You can do this by first deleting the old one:\n`;
-                        prompt += `\`manageTask\` action=deleteSubtask, parentTaskId=${taskId}, subtaskId=${subtaskId}\n`;
-                        prompt += `Then, add the new ones:\n`;
-                        prompt += `\`manageTask\` action=createSubtask, parentTaskId=${taskId}, subtasks=[...]`;
-                        return { content: [{ type: "text", text: prompt }] };
-                    } // End case 'expandSpecificSubtask'
-
-                    default:
-                        return { content: [{ type: "text", text: `Error: Unknown mode '${mode}'.` }], isError: true };
-                }
-            } catch (error: any) {
-                 return { 
-                    content: [{ type: "text", text: `Error performing action '${mode}': ${error.message}` }],
-                    isError: true 
-                };
+            if (!basePath) {
+                 return { content: [{ type: "text", text: "Error: 'basePath' parameter is required." }], isError: true };
             }
+
+            // Configure storage and load data
+            try {
+                configureStorage(basePath);
+                await loadEpics();
+            } catch (error: any) {
+                return { content: [{ type: "text", text: `Error accessing storage: ${error.message}` }], isError: true };
+            }
+            
+            let targetEpic: Epic | undefined;
+            let targetTask: Task | undefined;
+            let currentTaskId = taskId; // Keep track of the final target task ID
+            let targetItemType: string = "Task"; // Default assumption
+
+            // --- Determine Target Item --- 
+            if (currentTaskId) {
+                const result = getTaskById(currentTaskId);
+                if (result) {
+                    targetEpic = result.epic;
+                    targetTask = result.task;
+                    // If epicId was provided, verify it matches
+                    if (epicId && targetEpic.id !== epicId) {
+                         return { content: [{ type: "text", text: `Error: Task ${currentTaskId} found, but not within specified Epic ${epicId}.` }], isError: true };
+                    }
+                } else {
+                    // Try finding the epic if only task ID was given but not found directly
+                    if (!epicId) {
+                         return { content: [{ type: "text", text: `Error: Task ${currentTaskId} not found. Specify epicId if known.` }], isError: true };
+                    } 
+                }
+                // If task wasn't found via getTaskById but epicId *was* provided
+                if (!targetTask && epicId) {
+                     targetEpic = getEpicById(epicId);
+                     if (targetEpic) {
+                         targetTask = targetEpic.tasks.find(t => t.id === currentTaskId);
+                     }
+                }
+                 if (!targetEpic || !targetTask) {
+                    return { content: [{ type: "text", text: `Error: Could not find Task ${currentTaskId}. Specify epicId if known.` }], isError: true };
+                }
+                targetItemType = subtaskId ? "Subtask" : "Task"; // Refine type if subtaskId exists
+
+            } else if (epicId && !taskId) {
+                 // Expand an Epic
+                 targetEpic = getEpicById(epicId);
+                 if (!targetEpic) {
+                     return { content: [{ type: "text", text: `Error: Epic ${epicId} not found.` }], isError: true };
+                 }
+                 targetItemType = "Epic";
+                 targetTask = undefined; // Explicitly undefined when expanding an Epic
+
+            } else {
+                // Find the first expandable task across all epics if no ID provided
+                const allEpics = getEpics();
+                let found = false;
+                for (const epic of allEpics) {
+                    // Find a task suitable for expansion
+                    const expandableTask = epic.tasks.find(t => 
+                        t.status !== 'done' && // Not already done
+                        (!t.implementationPlan || t.implementationPlan.length < 50) && // Basic check for missing/short plan
+                        (!t.subtasks || t.subtasks.length === 0) // No subtasks yet
+                    );
+                    if (expandableTask) {
+                        targetEpic = epic;
+                        targetTask = expandableTask;
+                        currentTaskId = targetTask.id; // Set the target ID
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    // If no task, maybe suggest an Epic?
+                    targetEpic = allEpics.find(e => 
+                        e.status !== 'done' && 
+                        (!e.implementationPlan || e.implementationPlan.length < 50) &&
+                        (!e.tasks || e.tasks.length === 0)
+                    );
+                    if (targetEpic) {
+                        targetItemType = "Epic";
+                        targetTask = undefined; // Explicitly undefined
+                        suggestionMessage = `Suggested Epic to expand: ${targetEpic.id.substring(0,8)}. `; 
+                        found = true;
+                    } else {
+                         return { content: [{ type: "text", text: `No suitable Task or Epic found to expand automatically.` }] };
+                    }
+                } else {
+                    suggestionMessage = `Suggested Task to expand: ${currentTaskId?.substring(0,8)} in Epic ${targetEpic?.id.substring(0,8)}. `; 
+                    targetItemType = "Task";
+                }
+            }
+            
+            if (!targetEpic) {
+                 return { content: [{ type: "text", text: `Error: Could not determine target Epic.` }], isError: true };
+            }
+
+            // --- Build Prompt --- 
+            let prompt = suggestionMessage + `Expand the following ${targetItemType}:\n\n`;
+            prompt += `BASE PATH: ${basePath}\n`;
+            prompt += `EPIC ID: ${targetEpic.id}\n`;
+
+            if (targetTask) {
+                prompt += `TASK ID: ${targetTask.id}\nDESCRIPTION: ${targetTask.description.split('\n')[0]}\n`;
+                if (targetTask.description.includes('\n')) prompt += `\nDETAILS:\n${targetTask.description.split('\n').slice(1).join('\n').substring(0, 500)}...\n`;
+                if (targetTask.implementationPlan) prompt += `\nCURRENT PLAN:\n${targetTask.implementationPlan}\n`;
+                if (targetTask.complexity) prompt += `\nCOMPLEXITY: ${targetTask.complexity}\n`;
+                
+                // Include Subtask context if expanding a Subtask
+                let targetSubtask: Subtask | undefined;
+                if (subtaskId && targetTask.subtasks) {
+                    targetSubtask = targetTask.subtasks.find(st => st.id === subtaskId);
+                    if (targetSubtask) {
+                        prompt += `\n-- Expanding Subtask --\nSUBTASK ID: ${targetSubtask.id}\nSUBTASK DESC: ${targetSubtask.description}\n`;
+                    } else {
+                         prompt += `\nWARNING: Subtask ${subtaskId} not found in Task ${targetTask.id}. Expanding Task instead.\n`;
+                    }
+                } else if (targetTask.subtasks && targetTask.subtasks.length > 0) {
+                     prompt += `\n-- Existing Subtasks --\n` + targetTask.subtasks.map((st, i) => `${i+1}. ${st.description} [${st.status}]`).join('\n') + '\n';
+                }
+                
+            } else { // Expanding an Epic
+                prompt += `EPIC DESC: ${targetEpic.description.split('\n')[0]}\n`;
+                if (targetEpic.description.includes('\n')) prompt += `\nDETAILS:\n${targetEpic.description.split('\n').slice(1).join('\n').substring(0, 500)}...\n`;
+                if (targetEpic.implementationPlan) prompt += `\nCURRENT PLAN:\n${targetEpic.implementationPlan}\n`;
+                if (targetEpic.complexity) prompt += `\nCOMPLEXITY: ${targetEpic.complexity}\n`;
+                 if (targetEpic.tasks && targetEpic.tasks.length > 0) {
+                     prompt += `\n-- Existing Tasks --\n` + targetEpic.tasks.map((t, i) => `${i+1}. ${t.description.split('\n')[0]} [${t.status}]`).join('\n') + '\n';
+                }
+            }
+
+            prompt += `\nInstructions: ${instructions}`;
+            prompt += `\n\nGoal: Generate a list of actionable sub-items (Tasks for an Epic, Subtasks for a Task/Subtask) to achieve the goal described above.`;
+
+            return { 
+                content: [{ 
+                    type: "text", 
+                    text: prompt 
+                }],
+                // Return metadata about the item being expanded?
+                metadata: { 
+                    epicId: targetEpic.id,
+                    taskId: targetTask?.id,
+                    subtaskId: subtaskId, 
+                    itemType: targetItemType
+                } 
+            };
         }
     );
 } 
