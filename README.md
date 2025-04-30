@@ -4,6 +4,8 @@
   <em>Your AI-powered Epic Planning Assistant for Cursor AI</em>
 </p>
 
+![IntelliPlan MCP Demo](IntelliPlanMCP_Demo.gif)
+
 ---
 
 ## 🚀 Transform Your Development Workflow
