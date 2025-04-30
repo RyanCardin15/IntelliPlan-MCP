@@ -1,126 +1,84 @@
-# IntelliPlan MCP
+# ✨ IntelliPlan MCP
 
-An AI-powered task management system integrated into the Model Context Protocol (MCP) for use with Cursor AI and other compatible editors.
+<p align="center">
+  <em>Your AI-powered Epic Planning Assistant for Cursor AI</em>
+</p>
 
-It uses an Epic -> Task -> Subtask hierarchy.
+---
 
-## Key Features
+## 🚀 Transform Your Development Workflow
 
-- **Epic Management**: Create, update, list, and delete Epics (high-level goals).
-- **Task & Subtask Management**: Manage Tasks within Epics and Subtasks within Tasks.
-- **Dependencies**: Define dependencies between Epics or Tasks.
-- **Planning & Execution**: Set priorities, define details, get execution guidance.
-- **Contextual Information**: Get overviews, suggestions for the next item, and verification status.
-- **Storage**: Manage Epic/Task/Subtask data persistence.
+IntelliPlan is an intelligent task management system that seamlessly integrates with the Model Context Protocol (MCP) in Cursor AI and other compatible editors. It empowers you to organize your development process with a structured Epic → Task → Subtask hierarchy, all without leaving your coding environment.
 
-## Setup & Usage (MCP)
+## ✅ What Can IntelliPlan Do For You?
 
-1.  **Clone the Repository**: Get the project code onto your local machine.
-2.  **Install Dependencies**: Navigate to the project directory in your terminal and run:
-    ```bash
-    npm install
-    ```
-3.  **Build the Project**: Compile the TypeScript code:
-    ```bash
-    npm run build
-    ```
-4.  **Configure MCP in your Editor** (e.g., Cursor):
-    Add the following to your editor's MCP server configuration (e.g., in `.cursor-settings.json` or global settings):
-    ```json
-    {
-      "mcpServers": {
-        "IntelliPlanMCP": {
-          "command": "node",
-          "args": ["dist/index.js"]
-        }
-      }
-    }
-    ```
+### Organize Complex Projects with Ease
+- **Epic Creation & Management** - Break down complex projects into manageable high-level goals
+- **Task & Subtask Organization** - Structure your work with clear parent-child relationships
+- **Smart Dependencies** - Define and track relationships between work items
 
-5.  **Enable MCP** in your editor's settings.
-6.  **Use IntelliPlan**: Interact with the server using natural language within your editor (e.g., using `@IntelliPlanMCP` in Cursor chat). You'll need to configure the storage location first.
+### Supercharge Development Planning
+- **AI-Assisted Breakdown** - Automatically split complex tasks into manageable pieces
+- **Smart Implementation Suggestions** - Get guidance on how to approach challenges
+- **Complexity Analysis** - Understand the effort required before diving in
 
-    ```
-    @IntelliPlanMCP manageItems action=configure basePath="/Users/yourname/projects/myproject"
+### Keep Your Team on Track
+- **Progress Tracking** - Monitor completion status across all levels
+- **Next Action Recommendations** - Always know what to work on next
+- **Contextual Understanding** - Get summaries that capture the full scope of work
 
-    @IntelliPlanMCP createEpic description="Implement user authentication using JWT" basePath="/Users/yourname/projects/myproject"
+### Seamless Editor Integration
+- **Natural Language Interface** - Interact with IntelliPlan using conversational commands
+- **Stay in Your Workflow** - No need to switch context between tools
+- **MCP Protocol Support** - Works with any editor that implements the Model Context Protocol
 
-    @IntelliPlanMCP manageItems action=createTask epicId=[epic-id] description="Implement Login Endpoint" basePath="/Users/yourname/projects/myproject"
-
-    @IntelliPlanMCP manageItems action=listEpics basePath="/Users/yourname/projects/myproject"
-    ```
-
-## Available Tools (Functionality Summary)
-
-- `createEpic`: Creates new Epics (top-level tasks).
-- `manageItems`: Handles updates, deletion, listing of Epics, Tasks, and Subtasks, manages dependencies, and associated files.
-- `executeItem`: Guides execution of Epics or Tasks.
-- `generatePlan`: Helps plan Epics/Tasks (implementation, complexity). (Note: May need updates for new hierarchy)
-- `getTaskOverview`: Provides Epic/Task details, suggests next steps. (Note: Needs significant updates for new hierarchy)
-- `expandTask`: Assists in breaking down Epics/Tasks. (Note: Needs significant updates for new hierarchy)
-- `manageTaskStorage`: Configures where Epic data is saved.
-
-## Epic Storage System
-
-IntelliPlan uses a structured storage approach:
+## 🎮 Usage Examples
 
 ```
-[basePath]/                # User-specified base directory
-└── intelliplan/          # Main folder
-    └── epics/            # Epics subfolder
-        ├── epics.json    # Index of all Epics
-        └── [epic-id]/    # Individual folder for each Epic
-            └── epic.json # Data for the Epic (including its Tasks and Subtasks)
+# Set up your project storage
+@IntelliPlanMCP manageItems action=configure basePath="/path/to/your/project"
+
+# Create a new epic
+@IntelliPlanMCP createEpic description="Build user authentication system with JWT"
+
+# Add a task to your epic
+@IntelliPlanMCP manageItems action=createTask epicId=your-epic-id description="Implement login endpoint"
+
+# Get an overview of all your epics
+@IntelliPlanMCP manageItems action=listEpics
+
+# Generate an implementation plan for a task
+@IntelliPlanMCP generatePlan planType=implementation taskId=your-task-id
 ```
 
-### Storage Configuration
+## 🛠️ Getting Started
 
-The storage system requires explicit configuration using the `manageTaskStorage` tool. You must always specify the `basePath` where Epics should be stored.
+1. **Install IntelliPlan**: 
+   ```
+   npm install
+   npm run build
+   ```
 
-```javascript
-// Configure the storage location - REQUIRED before other operations
-await mcpServer.invokeForModel({
-  name: "mcp_task-orchestrator_manageTaskStorage", // Tool name might change if file renamed
-  params: {
-    action: "configure",
-    basePath: "/path/to/your/project" // MUST be specified explicitly
-  }
-});
+2. **Configure in Cursor**: Add to your `.cursor-settings.json`:
+   ```json
+   {
+     "mcpServers": {
+       "IntelliPlanMCP": {
+         "command": "node",
+         "args": ["path/to/dist/index.js"]
+       }
+     }
+   }
+   ```
 
-// Check current storage info (also requires basePath)
-await mcpServer.invokeForModel({
-  name: "mcp_task-orchestrator_manageTaskStorage", // Tool name might change
-  params: {
-    action: "getInfo",
-    basePath: "/path/to/your/project" // MUST be the same location
-  }
-});
-```
+3. **Enable & Start Planning**: Activate MCP in your editor settings and start organizing your development process!
 
-All item-related tools (`createEpic`, `manageItems`, `executeItem`, etc.) now also require the `basePath` parameter to ensure they operate on the correct storage location.
+## 🔍 Why IntelliPlan?
 
-```javascript
-// Example: Listing Epics
-await mcpServer.invokeForModel({
-  name: "mcp_task-orchestrator_manageItems",
-  params: {
-    action: "listEpics",
-    basePath: "/path/to/your/project" // REQUIRED
-  }
-});
+Unlike traditional task managers that live outside your development environment, IntelliPlan works right where you code. This integration eliminates context switching and keeps your planning tightly coupled with implementation.
 
-// Example: Generating Markdown files (exports Epics)
-await mcpServer.invokeForModel({
-  name: "mcp_task-orchestrator_manageTaskStorage", // Tool name might change
-  params: {
-    action: "generateFiles",
-    basePath: "/path/to/your/project", // REQUIRED
-    outputDirectory: "epic-exports" // Optional, defaults to "task-exports" currently
-  }
-});
-```
+IntelliPlan's AI capabilities go beyond simple task tracking - it understands the structure of your project and provides intelligent suggestions for implementation, testing strategies, and complexity analysis.
 
-Note that the `basePath` parameter must be consistent across calls to maintain access to the same data.
+## 📄 License
 
-## License
 MIT 
