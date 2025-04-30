@@ -66,7 +66,29 @@ IntelliPlan provides a suite of powerful tools to manage your development proces
 
 # Create a complete epic with nested tasks in a single operation
 @IntelliPlanMCP batchEpic description="Multi-tenant user authentication" basePath="/path/to/project" tasks=[...]
+
+# Get an epic overview with specific diagram types
+@IntelliPlanMCP getEpicOverview epicId=your-epic-id basePath="/path/to/project" diagramTypes=["progressPie", "dependencyGraph", "userJourney"]
 ```
+
+## Available Diagrams
+
+The `getEpicOverview` tool supports various Mermaid diagram types to visualize your epic's structure and progress:
+
+| Diagram Type | Description |
+|-------------|-------------|
+| `progressPie` | Circle chart showing completed vs remaining tasks |
+| `dependencyGraph` | Network diagram of epic and task dependencies |
+| `taskFlow` | Flow diagram organizing tasks by status with dependencies |
+| `timeline` | Gantt chart showing task timeline and durations |
+| `userJourney` | Progressive journey through task completion states |
+| `blockDiagram` | Block diagram showing epic structure and task counts |
+| `radarChart` | Bar chart showing task distribution by status |
+| `kanbanBoard` | Kanban-style board visualization of task status |
+| `sequenceDiagram` | Sequence diagram showing task interactions over time |
+| `classDiagram` | UML-style class diagram showing epic structure relationships |
+
+You can specify which diagrams to include using the `diagramTypes` parameter array. If not specified, all diagram types will be included when `includeDiagrams` is set to `true`.
 
 ## 🛠️ Getting Started
 
