@@ -25,6 +25,7 @@ const executeItemSchema = z.object({
     markInProgress: z.boolean().optional().default(true).describe("Mark item in-progress on start (default: true)"),
     additionalContext: z.string().optional().describe("Additional context for execution"),
     documentFindings: z.boolean().optional().default(true).describe("Whether to document findings during execution (default: true)"),
+    requireFileAssociation: z.boolean().optional().default(true).describe("Whether to require file associations after implementation (default: true)"),
     basePath: z.string().describe("Base directory path for storage (required)")
 });
 
@@ -187,6 +188,7 @@ export function registerExecuteItemTool(server: McpServer): void {
              markInProgress: z.boolean().optional().default(true),
              additionalContext: z.string().optional(),
              documentFindings: z.boolean().optional().default(true),
+             requireFileAssociation: z.boolean().optional().default(true),
              basePath: z.string()
         },
         async (params: ExecuteItemParams) => {
@@ -196,7 +198,8 @@ export function registerExecuteItemTool(server: McpServer): void {
                 executionMode = 'auto', 
                 markInProgress = true, 
                 additionalContext, 
-                documentFindings = true, 
+                documentFindings = true,
+                requireFileAssociation = true,
                 basePath 
             } = params;
             
@@ -498,7 +501,33 @@ export function registerExecuteItemTool(server: McpServer): void {
             
             // 10. Update instructions section
             responseText += `## 📢 After Completion\n\n`;
-            responseText += `When you've completed this ${itemType} or one of its subtasks, update its status using the \`manageItems\` tool:\n\n`;
+            
+            // Add file association requirement
+            if (requireFileAssociation) {
+                responseText += `### 📂 Required: Associate Files with this ${itemType}\n\n`;
+                responseText += `After implementation, you must associate any modified or created files with this ${itemType}. This is crucial for maintaining traceability and documentation.\n\n`;
+
+                if (itemToExecute.files && itemToExecute.files.length > 0) {
+                    responseText += `**Currently Associated Files:**\n`;
+                    itemToExecute.files.forEach(file => {
+                        responseText += `- \`${file.filePath}\`${file.description ? `: ${file.description}` : ''}\n`;
+                    });
+                    responseText += `\n`;
+                } else {
+                    responseText += `**No files are currently associated with this ${itemType}.**\n\n`;
+                }
+
+                responseText += `To add a file to this ${itemType}:\n`;
+                
+                if (itemType === "Task") {
+                    responseText += `\`\`\`\nmanageItems action=addFileToTask epicId=${resolvedEpicId} taskId=${resolvedTaskId} filePath="path/to/your/file.ts" fileDescription="Brief description of the file's purpose" basePath="${basePath}"\n\`\`\`\n\n`;
+                } else {
+                    responseText += `\`\`\`\nmanageItems action=addFileToEpic epicId=${resolvedEpicId} filePath="path/to/your/file.ts" fileDescription="Brief description of the file's purpose" basePath="${basePath}"\n\`\`\`\n\n`;
+                }
+            }
+            
+            responseText += `### ✅ Update Status\n\n`;
+            responseText += `When you've completed this ${itemType} or one of its subtasks, update its status:\n\n`;
             
             if (targetTask && targetTask.subtasks && targetTask.subtasks.length > 0) {
                 const pendingSubtask = targetTask.subtasks.find(s => s.status !== 'done');

@@ -78,6 +78,7 @@ const manageItemSchema = z.object({
     dependsOn: z.string().uuid().optional().describe("Dependency ID (Epic ID or Task ID)"),
     filePath: z.string().optional().describe("File path (for addFile.../removeFile... actions)"),
     fileDescription: descriptionSchema.optional().describe("File description (for addFile... actions)"),
+    requireFileAssociation: z.boolean().optional().default(true).describe("Whether to require file associations for completed items"),
     
     // Filters
     statusFilter: taskStatusSchema.optional().describe("Filter by status (for listEpics action)"),
@@ -88,7 +89,7 @@ type ManageItemParams = z.infer<typeof manageItemSchema>;
 // Helper to create the standard response structure
 function createTextResponse(text: string, isError: boolean = false) {
     return {
-        content: [{ type: "text", text }],
+        content: [{ type: "text" as const, text }],
         isError: isError
     };
 }
@@ -112,6 +113,7 @@ export function registerManageItemsTool(server: McpServer): void {
             dependsOn: z.string().uuid().optional(),
             filePath: z.string().optional(),
             fileDescription: descriptionSchema.optional(),
+            requireFileAssociation: z.boolean().optional().default(true),
             statusFilter: taskStatusSchema.optional(),
         },
         async (params: ManageItemParams) => {
@@ -121,7 +123,9 @@ export function registerManageItemsTool(server: McpServer): void {
                 epicId, 
                 taskId, 
                 subtaskId,
-                description, status, subtaskStatus, priority, complexity, details, dependsOn, filePath, fileDescription, statusFilter
+                description, status, subtaskStatus, priority, complexity, details, dependsOn, filePath, fileDescription, 
+                requireFileAssociation = true,
+                statusFilter
             } = params;
 
             if (!basePath) {
@@ -174,6 +178,12 @@ export function registerManageItemsTool(server: McpServer): void {
                         const epic = getEpicById(epicId);
                         if (!epic) throw new Error(`Epic ${epicId} not found.`);
                         
+                        // Check if completing without files
+                        if (requireFileAssociation && status === 'done' && 
+                            epic.status !== 'done' && (!epic.files || epic.files.length === 0)) {
+                            throw new Error(`Cannot mark Epic ${epicId} as complete without associated files. Add files first using addFileToEpic.`);
+                        }
+                        
                         const updatedEpic = { ...epic, ...updates, updatedAt: new Date().toISOString() };
                         const success = updateEpicStore(epicId, updatedEpic);
                         if (success) {
@@ -212,7 +222,109 @@ export function registerManageItemsTool(server: McpServer): void {
                         }
                         break;
                     }
-                    // ... Implement removeEpicDependency, addFileToEpic, removeFileFromEpic ...
+                    case 'addFileToEpic': {
+                        if (!epicId || !filePath) throw new Error("epicId and filePath are required for addFileToEpic");
+                        const epic = getEpicById(epicId);
+                        if (!epic) throw new Error(`Epic ${epicId} not found.`);
+                        
+                        // Check if file already exists
+                        if (epic.files.some(f => f.filePath === filePath)) {
+                            result = { success: true, message: `File ${filePath} already associated with Epic ${epicId}.` };
+                            break;
+                        }
+                        
+                        const newFile: AssociatedFile = {
+                            filePath,
+                            description: fileDescription,
+                            addedAt: new Date().toISOString()
+                        };
+                        
+                        epic.files.push(newFile);
+                        const success = updateEpicStore(epicId, epic);
+                        if (success) {
+                            await saveEpics();
+                            result = { success: true, message: `File ${filePath} added to Epic ${epicId}.` };
+                        } else {
+                            throw new Error(`Failed to add file to Epic ${epicId}.`);
+                        }
+                        break;
+                    }
+                    
+                    case 'removeFileFromEpic': {
+                        if (!epicId || !filePath) throw new Error("epicId and filePath are required for removeFileFromEpic");
+                        const epic = getEpicById(epicId);
+                        if (!epic) throw new Error(`Epic ${epicId} not found.`);
+                        
+                        const initialLength = epic.files.length;
+                        epic.files = epic.files.filter(f => f.filePath !== filePath);
+                        
+                        if (epic.files.length < initialLength) {
+                            const success = updateEpicStore(epicId, epic);
+                            if (success) {
+                                await saveEpics();
+                                result = { success: true, message: `File ${filePath} removed from Epic ${epicId}.` };
+                            } else {
+                                throw new Error(`Failed to update Epic ${epicId}.`);
+                            }
+                        } else {
+                            result = { success: true, message: `File ${filePath} not found in Epic ${epicId}.` };
+                        }
+                        break;
+                    }
+                    
+                    case 'addFileToTask': {
+                        if (!epicId || !taskId || !filePath) throw new Error("epicId, taskId, and filePath are required for addFileToTask");
+                        const epic = getEpicById(epicId);
+                        if (!epic) throw new Error(`Epic ${epicId} not found.`);
+                        const taskIndex = epic.tasks.findIndex(t => t.id === taskId);
+                        if (taskIndex === -1) throw new Error(`Task ${taskId} not found in Epic ${epicId}.`);
+                        
+                        // Check if file already exists
+                        if (epic.tasks[taskIndex].files.some(f => f.filePath === filePath)) {
+                            result = { success: true, message: `File ${filePath} already associated with Task ${taskId}.` };
+                            break;
+                        }
+                        
+                        const newFile: AssociatedFile = {
+                            filePath,
+                            description: fileDescription,
+                            addedAt: new Date().toISOString()
+                        };
+                        
+                        epic.tasks[taskIndex].files.push(newFile);
+                        const success = updateEpicStore(epicId, epic);
+                        if (success) {
+                            await saveEpics();
+                            result = { success: true, message: `File ${filePath} added to Task ${taskId}.` };
+                        } else {
+                            throw new Error(`Failed to add file to Task ${taskId}.`);
+                        }
+                        break;
+                    }
+                    
+                    case 'removeFileFromTask': {
+                        if (!epicId || !taskId || !filePath) throw new Error("epicId, taskId, and filePath are required for removeFileFromTask");
+                        const epic = getEpicById(epicId);
+                        if (!epic) throw new Error(`Epic ${epicId} not found.`);
+                        const taskIndex = epic.tasks.findIndex(t => t.id === taskId);
+                        if (taskIndex === -1) throw new Error(`Task ${taskId} not found in Epic ${epicId}.`);
+                        
+                        const initialLength = epic.tasks[taskIndex].files.length;
+                        epic.tasks[taskIndex].files = epic.tasks[taskIndex].files.filter(f => f.filePath !== filePath);
+                        
+                        if (epic.tasks[taskIndex].files.length < initialLength) {
+                            const success = updateEpicStore(epicId, epic);
+                            if (success) {
+                                await saveEpics();
+                                result = { success: true, message: `File ${filePath} removed from Task ${taskId}.` };
+                            } else {
+                                throw new Error(`Failed to update Task ${taskId}.`);
+                            }
+                        } else {
+                            result = { success: true, message: `File ${filePath} not found in Task ${taskId}.` };
+                        }
+                        break;
+                    }
 
                     // --- Task Actions --- 
                     case 'createTask': {
@@ -260,6 +372,13 @@ export function registerManageItemsTool(server: McpServer): void {
                         if (Object.keys(updates).length === 0) {
                              result = { success: true, message: `No update parameters provided for Task ${taskId}.` };
                              break;
+                        }
+                        
+                        // Check if completing without files
+                        if (requireFileAssociation && status === 'done' && 
+                            epic.tasks[taskIndex].status !== 'done' && 
+                            (!epic.tasks[taskIndex].files || epic.tasks[taskIndex].files.length === 0)) {
+                            throw new Error(`Cannot mark Task ${taskId} as complete without associated files. Add files first using addFileToTask.`);
                         }
 
                         const updatedTask = { ...epic.tasks[taskIndex], ...updates, updatedAt: new Date().toISOString() };
@@ -361,19 +480,12 @@ export function registerManageItemsTool(server: McpServer): void {
                         }
                         break;
                     }
-                    default:
-                         throw new Error(`Unknown action: ${action}`);
                 }
-                
-                // Return the result message
-                return { content: [{ type: "text", text: result.message || "Operation completed." }] };
 
+                return createTextResponse(result.message, !result.success);
             } catch (error: any) {
-                 return { 
-                    content: [{ type: "text", text: `Error performing action '${action}': ${error.message}` }],
-                    isError: true 
-                };
+                return createTextResponse(`Error: ${error.message}`, true);
             }
         }
     );
-} 
+}

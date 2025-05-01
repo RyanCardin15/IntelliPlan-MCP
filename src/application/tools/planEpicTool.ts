@@ -318,7 +318,7 @@ function generateFinalizationPrompt(description: string, planSummary: string, ba
     
     prompt += `When creating the Epic, rely on your detailed understanding of the requirements, components, tasks, dependencies, implementation details, and test strategy that you've developed during this planning process.\n\n`;
     
-    prompt += `You don't need to pass around all the details - you already know them! Use your understanding to create a comprehensive Epic structure.`;
+    prompt += `Now call the batchEpic tool to create the Epic.`;
     
     return prompt;
 } 
