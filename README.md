@@ -42,6 +42,7 @@ IntelliPlan provides a suite of powerful tools to manage your development proces
 |------|-------------|
 | `batchEpic` | Creates a complete Epic with multiple tasks, each potentially having multiple subtasks, in a single operation. |
 | `createEpic` | Creates a new Epic (top-level task) with planning details and optional initial Task creation. |
+| `createPlanningConfig` | Creates a JSON configuration file for the planEpic tool, allowing customization of planning steps and process. |
 | `executeItem` | Executes or provides guidance for executing an Epic or Task. |
 | `expandTask` | Breaks down a task or epic into smaller, actionable sub-items. |
 | `getEpicOverview` | Provides a detailed, easy-to-read overview of an Epic, its tasks, and related information. |
@@ -117,9 +118,23 @@ You can specify which diagrams to include using the `diagramTypes` parameter arr
 IntelliPlan supports customizable planning processes through JSON configuration files:
 
 1. **Create Configuration Files**:
-   You can place JSON configuration files anywhere in your project. The `config/planning/` directory is suggested for organization, but not required. See `config/planning/simple-planning.json` for an example.
+   You can place JSON configuration files anywhere in your project. The `config/planning/` directory is suggested for organization, but not required. See `config/sample-planning-config.json` for an example.
 
-2. **Configuration Structure**:
+2. **Using the Configuration Builder**:
+   IntelliPlan provides an interactive tool to create planning configurations:
+   ```
+   @IntelliPlanMCP createPlanningConfig currentStep=0
+   ```
+   
+   This will guide you through a step-by-step process to define your custom planning steps.
+
+3. **Direct Configuration Creation**:
+   For more advanced users, you can create a configuration directly:
+   ```
+   @IntelliPlanMCP createDirectPlanningConfig name="Custom Plan" description="Your custom planning process" outputPath="config/your-config.json" steps=[...]
+   ```
+
+4. **Configuration Structure**:
    ```json
    {
      "id": "your-plan-id",
@@ -144,12 +159,12 @@ IntelliPlan supports customizable planning processes through JSON configuration 
    }
    ```
 
-3. **Use Custom Configuration**:
+5. **Use Custom Configuration**:
    ```
    @IntelliPlanMCP planEpic description="Your project" configPath="full/path/to/your/config.json"
    ```
 
-4. **LLM-Generated Configurations**:
+6. **LLM-Generated Configurations**:
    The configuration path doesn't have to point to an existing file. The language model can generate custom planning configurations on-the-fly based on your requirements. Simply ask the LLM to create a planning configuration for your specific needs, and it will generate the appropriate JSON configuration for your use case.
 
 ## 🔍 Why IntelliPlan?

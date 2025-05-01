@@ -9,10 +9,16 @@
     "dev": "node --no-warnings --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "planning",
+    "epic",
+    "tasks",
+    "intelliplan"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "IntelliPlan MCP provides structured planning and task management tools for LLM agents",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
     "uuid": "^11.1.0",

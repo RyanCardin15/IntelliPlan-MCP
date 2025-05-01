@@ -15,7 +15,7 @@ const createEpicSchema = z.object({
     priority: prioritySchema.optional(), // Make priority optional for Epic creation
     testStrategy: z.string().optional().describe("Overall testing strategy for the Epic"),
     createTasksFromSteps: z.boolean().optional().default(true).describe("Create Tasks from the 'tasks' list (default: true)"),
-    basePath: z.string().describe("Base directory path where Epic storage will be created (required)"),
+    basePath: z.string().describe("FULL directory path where Epic storage will be created (required, e.g., '/path/to/storage')"),
     complexity: z.string().optional().describe("Complexity of the Epic"),
 });
 
@@ -35,7 +35,7 @@ export function registerCreateEpicTool(server: McpServer): void {
             priority: prioritySchema.optional(),
             testStrategy: z.string().optional().describe("Overall testing strategy for the Epic"),
             createTasksFromSteps: z.boolean().optional().default(true).describe("Create Tasks from the 'tasks' list (default: true)"),
-            basePath: z.string().describe("Base directory path where Epic storage will be created (required)"),
+            basePath: z.string().describe("FULL directory path where Epic storage will be created (required, e.g., '/path/to/storage')"),
             complexity: z.string().optional().describe("Complexity of the Epic"),
         },
         async (params: CreateEpicParams) => {

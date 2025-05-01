@@ -34,7 +34,7 @@ const expandTaskSchema = z.object({
     batchSize: z.number().optional().describe("Total number of tasks in the batch"),
     taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch"),
     instructions: z.string().default("Break down the item into smaller, actionable sub-items (subtasks for a task, tasks for an epic).").describe("Specific instructions for expansion"),
-    basePath: z.string().describe("Base directory path for storage (required)")
+    basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
 });
 
 type ExpandTaskParams = z.infer<typeof expandTaskSchema>;
@@ -55,7 +55,7 @@ export function registerExpandTaskTool(server: McpServer): void {
             batchSize: z.number().optional().describe("Total number of tasks in the batch"),
             taskIds: z.array(taskIdSchema).optional().describe("List of task IDs in the batch"),
             instructions: z.string(),
-            basePath: z.string()
+            basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
         },
         async (params: ExpandTaskParams) => {
             const { 

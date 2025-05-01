@@ -153,7 +153,7 @@ const getEpicOverviewSchema = z.object({
     verbosity: z.enum(['summary', 'detailed', 'full']).optional().default('detailed').describe("Level of detail for 'fullOverview'"),
     includeDiagrams: z.boolean().optional().default(true).describe("Include Mermaid diagrams (for 'fullOverview')"),
     diagramTypes: z.array(z.string()).optional().describe("Specific diagram types to include (if empty and includeDiagrams=true, includes all)"),
-    basePath: z.string().describe("Base directory path for storage (required)")
+    basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
 });
 
 // Infer the parameter type from the schema
@@ -169,7 +169,7 @@ export function registerGetEpicOverviewTool(server: McpServer): void {
             verbosity: z.enum(['summary', 'detailed', 'full']).optional().default('detailed').describe("Level of detail for 'fullOverview'"),
             includeDiagrams: z.boolean().optional().default(true).describe("Include Mermaid diagrams (for 'fullOverview')"),
             diagramTypes: z.array(z.string()).optional().describe("Specific diagram types to include (if empty and includeDiagrams=true, includes all)"),
-            basePath: z.string().describe("Base directory path for storage (required)")
+            basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
         },
         async (params: GetEpicOverviewParams) => {
             const { 

@@ -61,7 +61,7 @@ const manageItemActionSchema = z.enum([
 // Refined Parameter Schema
 const manageItemSchema = z.object({
     action: manageItemActionSchema.describe("Management action to perform (required)"),
-    basePath: z.string().describe("Base directory path for storage (required)"),
+    basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')"),
     
     // Identifiers (conditionally required based on action)
     epicId: epicIdSchema.optional(),
@@ -100,7 +100,7 @@ export function registerManageItemsTool(server: McpServer): void {
         "Manages Epics, Tasks, and Subtasks.",
         {
             action: manageItemActionSchema,
-            basePath: z.string(),
+            basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')"),
             epicId: epicIdSchema.optional(),
             taskId: taskIdSchemaRevised.optional(),
             subtaskId: subtaskIdSchemaRevised.optional(),

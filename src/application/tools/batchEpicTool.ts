@@ -31,7 +31,7 @@ const batchEpicSchema = z.object({
     testStrategy: z.string().optional().describe("Overall test strategy for the Epic (optional)"),
     implementationPlan: z.string().optional().describe("Overall implementation plan for the Epic (optional)"),
     tasks: z.array(batchTaskSchema).describe("List of tasks for this Epic"),
-    basePath: z.string().describe("Base directory path where Epic storage will be created (required)"),
+    basePath: z.string().describe("FULL directory path where Epic storage will be created (required, e.g., '/path/to/storage')"),
 });
 
 type BatchEpicParams = z.infer<typeof batchEpicSchema>;
@@ -47,7 +47,7 @@ export function registerBatchEpicTool(server: McpServer): void {
             testStrategy: z.string().optional().describe("Overall test strategy for the Epic (optional)"),
             implementationPlan: z.string().optional().describe("Overall implementation plan for the Epic (optional)"),
             tasks: z.array(batchTaskSchema).describe("List of tasks for this Epic"),
-            basePath: z.string().describe("Base directory path where Epic storage will be created (required)"),
+            basePath: z.string().describe("FULL directory path where Epic storage will be created (required, e.g., '/path/to/storage')"),
         },
         async (params: BatchEpicParams) => {
             const {

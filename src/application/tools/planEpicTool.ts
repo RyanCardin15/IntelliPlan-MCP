@@ -7,14 +7,14 @@ import path from "path";
 
 const planEpicSchema = z.object({
     description: descriptionSchema.describe("High-level description of what needs to be implemented"),
-    basePath: z.string().optional().describe("Base path for the implementation (optional)"),
+    basePath: z.string().optional().describe("FULL base path for the implementation (optional)"),
     includeSubtasks: z.boolean().optional().describe("Whether to include creation of subtasks (default: true)"),
     maxDepth: z.number().optional().describe("Maximum depth of subtask hierarchy (optional, default: 3)"),
     includeTestStrategy: z.boolean().optional().describe("Whether to include test strategy planning (optional, default: true)"),
     additionalContext: z.string().optional().describe("Additional context or requirements for the implementation (optional)"),
     currentStep: z.number().optional().describe("Current step in the sequential thinking process (internal use)"),
     planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)"),
-    configPath: z.string().optional().describe("Path to custom plan configuration JSON file (optional)")
+    configPath: z.string().optional().describe("FULL path to custom plan configuration JSON file (optional)")
 });
 
 type PlanEpicParams = z.infer<typeof planEpicSchema>;
@@ -25,14 +25,14 @@ export function registerPlanEpicTool(server: McpServer): void {
         "Interactively creates a detailed implementation plan with hierarchical tasks and subtasks through sequential thinking, guiding the agent through multiple steps of refinement. Must be called BEFORE using the createEpic tool to ensure a comprehensive plan.",
         {
             description: descriptionSchema.describe("High-level description of what needs to be implemented"),
-            basePath: z.string().optional().describe("Base path for the implementation (optional)"),
+            basePath: z.string().optional().describe("FULL base path for the implementation (optional)"),
             includeSubtasks: z.boolean().optional().describe("Whether to include creation of subtasks (default: true)"),
             maxDepth: z.number().optional().describe("Maximum depth of subtask hierarchy (optional, default: 3)"),
             includeTestStrategy: z.boolean().optional().describe("Whether to include test strategy planning (optional, default: true)"),
             additionalContext: z.string().optional().describe("Additional context or requirements for the implementation (optional)"),
             currentStep: z.number().optional().describe("Current step in the sequential thinking process (internal use)"),
             planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)"),
-            configPath: z.string().optional().describe("Path to custom plan configuration JSON file (optional)")
+            configPath: z.string().optional().describe("FULL path to custom plan configuration JSON file (optional)")
         },
         async (params: PlanEpicParams) => {
             const { 

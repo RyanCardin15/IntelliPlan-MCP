@@ -26,7 +26,7 @@ const executeItemSchema = z.object({
     additionalContext: z.string().optional().describe("Additional context for execution"),
     documentFindings: z.boolean().optional().default(true).describe("Whether to document findings during execution (default: true)"),
     requireFileAssociation: z.boolean().optional().default(true).describe("Whether to require file associations after implementation (default: true)"),
-    basePath: z.string().describe("Base directory path for storage (required)")
+    basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
 });
 
 type ExecuteItemParams = z.infer<typeof executeItemSchema>;
@@ -189,7 +189,7 @@ export function registerExecuteItemTool(server: McpServer): void {
              additionalContext: z.string().optional(),
              documentFindings: z.boolean().optional().default(true),
              requireFileAssociation: z.boolean().optional().default(true),
-             basePath: z.string()
+             basePath: z.string().describe("FULL directory path for storage (required, e.g., '/path/to/storage')")
         },
         async (params: ExecuteItemParams) => {
             const { 

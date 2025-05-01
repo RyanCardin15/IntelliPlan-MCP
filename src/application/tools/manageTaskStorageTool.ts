@@ -19,8 +19,8 @@ const storageActionSchema = z.enum(['configure', 'getInfo', 'generateFiles']);
 
 const manageTaskStorageSchema = z.object({
     action: storageActionSchema.describe("Storage action to perform (required)"),
-    basePath: z.string().describe("Base directory path for storage (required for all actions)"),
-    outputDirectory: z.string().optional().default('epic-exports').describe("Output directory for generated files (relative to basePath)")
+    basePath: z.string().describe("FULL directory path for storage (required for all actions, e.g., '/path/to/storage')"),
+    outputDirectory: z.string().optional().default('epic-exports').describe("FULL output directory path for generated files")
 });
 
 type ManageTaskStorageParams = z.infer<typeof manageTaskStorageSchema>;
@@ -99,8 +99,8 @@ export function registerManageTaskStorageTool(server: McpServer): void {
         "Manages storage configuration and export for Epics.",
         {
             action: storageActionSchema,
-            basePath: z.string(),
-            outputDirectory: z.string()
+            basePath: z.string().describe("FULL directory path for storage (required for all actions, e.g., '/path/to/storage')"),
+            outputDirectory: z.string().describe("FULL output directory path for generated files")
         },
         async (params: ManageTaskStorageParams) => {
             const { action, basePath, outputDirectory = 'epic-exports' } = params;
