@@ -16,8 +16,8 @@
     "tasks",
     "intelliplan"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Ryan Cardin",
+  "license": "MIT",
   "description": "IntelliPlan MCP provides structured planning and task management tools for LLM agents",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",
