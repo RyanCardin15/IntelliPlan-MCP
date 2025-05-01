@@ -1,6 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { descriptionSchema } from "../schemas/commonSchemas.js";
+import { loadPlanConfiguration, DEFAULT_PLAN_CONFIGURATION } from "../../infrastructure/planConfigLoader.js";
+import type { PlanConfiguration, PlanStep } from "../../types/PlanConfigTypes.js";
+import path from "path";
 
 const planEpicSchema = z.object({
     description: descriptionSchema.describe("High-level description of what needs to be implemented"),
@@ -10,7 +13,8 @@ const planEpicSchema = z.object({
     includeTestStrategy: z.boolean().optional().describe("Whether to include test strategy planning (optional, default: true)"),
     additionalContext: z.string().optional().describe("Additional context or requirements for the implementation (optional)"),
     currentStep: z.number().optional().describe("Current step in the sequential thinking process (internal use)"),
-    planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)")
+    planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)"),
+    configPath: z.string().optional().describe("Path to custom plan configuration JSON file (optional)")
 });
 
 type PlanEpicParams = z.infer<typeof planEpicSchema>;
@@ -27,7 +31,8 @@ export function registerPlanEpicTool(server: McpServer): void {
             includeTestStrategy: z.boolean().optional().describe("Whether to include test strategy planning (optional, default: true)"),
             additionalContext: z.string().optional().describe("Additional context or requirements for the implementation (optional)"),
             currentStep: z.number().optional().describe("Current step in the sequential thinking process (internal use)"),
-            planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)")
+            planSummary: z.string().optional().describe("Brief summary of planning progress so far (internal use)"),
+            configPath: z.string().optional().describe("Path to custom plan configuration JSON file (optional)")
         },
         async (params: PlanEpicParams) => {
             const { 
@@ -38,64 +43,70 @@ export function registerPlanEpicTool(server: McpServer): void {
                 includeTestStrategy = true, 
                 additionalContext,
                 currentStep = 0,
-                planSummary = ""
+                planSummary = "",
+                configPath
             } = params;
             
             try {
-                // Sequential thinking steps
-                const steps = [
-                    "initialization",
-                    "requirement_analysis",
-                    "component_breakdown",
-                    "task_detailing",
-                    "dependency_mapping",
-                    "implementation_details",
-                    "test_strategy",
-                    "finalization"
-                ];
+                // Load plan configuration (from file or default)
+                let planConfig: PlanConfiguration = DEFAULT_PLAN_CONFIGURATION;
+                let configError: string | undefined = undefined;
                 
-                const currentStepName = steps[currentStep] || "initialization";
-                let prompt = "";
-                let nextStep = currentStep;
+                if (configPath) {
+                    const configResult = loadPlanConfiguration(configPath);
+                    if (configResult.success && configResult.configuration) {
+                        planConfig = configResult.configuration;
+                    } else {
+                        configError = configResult.error;
+                    }
+                }
                 
-                // STEP 0: Initialization - First call, provide overview
-                if (currentStepName === "initialization") {
-                    prompt = generateInitializationPrompt(description, basePath, additionalContext, maxDepth, includeTestStrategy);
-                    nextStep = 1;
+                // Check if configuration could not be loaded
+                if (configError) {
+                    return { 
+                        content: [{ type: "text", text: `Error loading plan configuration: ${configError}` }],
+                        isError: true 
+                    };
                 }
-                // STEP 1: Requirements Analysis - Identify and categorize requirements
-                else if (currentStepName === "requirement_analysis") {
-                    prompt = generateRequirementsAnalysisPrompt(description, planSummary, additionalContext);
-                    nextStep = 2;
+                
+                // Get configuration-specific values or use defaults
+                const effectiveMaxDepth = maxDepth || planConfig.defaultMaxDepth || 3;
+                const effectiveIncludeTestStrategy = includeTestStrategy !== undefined ? 
+                    includeTestStrategy : (planConfig.includeTestStrategy !== undefined ? 
+                    planConfig.includeTestStrategy : true);
+                
+                // Get steps from configuration
+                const steps = planConfig.steps.map(step => step.id);
+                
+                // Get current step or default to first step
+                const currentStepName = currentStep < steps.length ? steps[currentStep] : steps[0];
+                
+                // Find the step configuration
+                const stepConfig = planConfig.steps.find(step => step.id === currentStepName);
+                
+                if (!stepConfig) {
+                    return { 
+                        content: [{ type: "text", text: `Error: Could not find configuration for step "${currentStepName}"` }],
+                        isError: true 
+                    };
                 }
-                // STEP 2: Component Breakdown - Break down into major components
-                else if (currentStepName === "component_breakdown") {
-                    prompt = generateComponentBreakdownPrompt(description, planSummary);
-                    nextStep = 3;
-                }
-                // STEP 3: Task Detailing - Create specific tasks for each component
-                else if (currentStepName === "task_detailing") {
-                    prompt = generateTaskDetailingPrompt(description, planSummary, maxDepth);
-                    nextStep = 4;
-                }
-                // STEP 4: Dependency Mapping - Identify dependencies between tasks
-                else if (currentStepName === "dependency_mapping") {
-                    prompt = generateDependencyMappingPrompt(description, planSummary);
-                    nextStep = 5;
-                }
-                // STEP 5: Implementation Details - Add implementation guidance
-                else if (currentStepName === "implementation_details") {
-                    prompt = generateImplementationDetailsPrompt(description, planSummary);
-                    nextStep = includeTestStrategy ? 6 : 7;
-                }
-                // STEP 6: Test Strategy - Develop testing approach
-                else if (currentStepName === "test_strategy" && includeTestStrategy) {
-                    prompt = generateTestStrategyPrompt(description, planSummary);
-                    nextStep = 7;
-                }
-                // STEP 7: Finalization - Complete the planning process
-                else if (currentStepName === "finalization") {
-                    prompt = generateFinalizationPrompt(description, planSummary, basePath);
+                
+                // Generate prompt for current step
+                let prompt = generatePromptFromStepConfig(
+                    stepConfig, 
+                    description, 
+                    basePath, 
+                    additionalContext,
+                    planSummary,
+                    effectiveMaxDepth,
+                    effectiveIncludeTestStrategy
+                );
+                
+                // Determine next step
+                let nextStep = stepConfig.order + 1;
+                
+                // Check if we've reached the end of the process
+                if (nextStep >= planConfig.steps.length) {
                     nextStep = -1; // End of process
                 }
                 
@@ -103,16 +114,21 @@ export function registerPlanEpicTool(server: McpServer): void {
                 const metadata: any = {
                     planType: "implementation",
                     includesSubtasks: includeSubtasks,
-                    includesTestStrategy: includeTestStrategy,
+                    includesTestStrategy: effectiveIncludeTestStrategy,
                     currentStep: currentStep,
                     nextStep: nextStep,
                     stepName: currentStepName,
-                    isComplete: nextStep === -1
+                    isComplete: nextStep === -1,
+                    configurationId: planConfig.id,
+                    configurationName: planConfig.name
                 };
                 
                 if (nextStep !== -1) {
-                    metadata.nextAction = "Call planEpic with updated planSummary and currentStep";
-                    metadata.nextStepName = steps[nextStep];
+                    const nextStepConfig = planConfig.steps.find(step => step.order === nextStep);
+                    if (nextStepConfig) {
+                        metadata.nextAction = "Call planEpic with updated planSummary and currentStep";
+                        metadata.nextStepName = nextStepConfig.id;
+                    }
                 } else {
                     metadata.nextAction = "Create Epic structure using batchEpic tool";
                 }
@@ -131,9 +147,75 @@ export function registerPlanEpicTool(server: McpServer): void {
     );
 }
 
-// Helper functions for generating step-specific prompts
+/**
+ * Generates a prompt based on the step configuration
+ */
+function generatePromptFromStepConfig(
+    stepConfig: PlanStep,
+    description: string,
+    basePath?: string,
+    additionalContext?: string,
+    planSummary?: string,
+    maxDepth: number = 3,
+    includeTestStrategy: boolean = true
+): string {
+    // Build the step title and header
+    let prompt = `# Sequential Epic Planning: Step ${stepConfig.order + 1} - ${stepConfig.name}\n\n`;
+    
+    // Add project info
+    prompt += `**Project**: ${description}\n`;
+    if (basePath) prompt += `**Path**: ${basePath}\n`;
+    if (additionalContext && stepConfig.order <= 1) prompt += `**Context**: ${additionalContext}\n`;
+    
+    // Add previous step summary if this step requires it
+    if (stepConfig.requiresPreviousStepData && planSummary) {
+        prompt += `**Previous Step**: ${planSummary}\n`;
+    }
+    prompt += '\n';
+    
+    // Add step instructions
+    prompt += `**Instructions**:\n`;
+    stepConfig.instructions.forEach((instruction, index) => {
+        prompt += `${index + 1}. ${instruction}\n`;
+    });
+    prompt += '\n';
+    
+    // Add thinking prompts
+    if (stepConfig.thinkingPrompts.length > 0) {
+        prompt += `**Think About**: ${stepConfig.thinkingPrompts.join(' ')}\n\n`;
+    }
+    
+    // Add next step prompt
+    prompt += `**Next Step**:\n`;
+    prompt += `${stepConfig.nextStepPrompt}\n\n`;
+    
+    // Add hint for summary if not the initialization step
+    if (stepConfig.order > 0) {
+        prompt += `Provide a 2-3 sentence summary in planSummary. Think thoroughly before submitting.`;
+    }
+    
+    return prompt;
+}
+
+// Keep the legacy helper functions for backward compatibility
+// They will be removed in a future update
 
 function generateInitializationPrompt(description: string, basePath?: string, additionalContext?: string, maxDepth: number = 3, includeTestStrategy: boolean = true): string {
+    // Find the initialization step in the default configuration
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "initialization");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            basePath,
+            additionalContext,
+            "",
+            maxDepth,
+            includeTestStrategy
+        );
+    }
+    
+    // Fallback to original implementation
     let prompt = `# Sequential Epic Planning: Step 1 - Getting Started\n\n`;
     
     prompt += `**Project**: ${description}\n`;
@@ -158,6 +240,18 @@ function generateInitializationPrompt(description: string, basePath?: string, ad
 }
 
 function generateRequirementsAnalysisPrompt(description: string, planSummary: string, additionalContext?: string): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "requirement_analysis");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            additionalContext,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 2 - Requirements Analysis\n\n`;
     
     prompt += `**Project**: ${description}\n`;
@@ -183,6 +277,18 @@ function generateRequirementsAnalysisPrompt(description: string, planSummary: st
 }
 
 function generateComponentBreakdownPrompt(description: string, planSummary: string): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "component_breakdown");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            undefined,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 3 - Component Breakdown\n\n`;
     
     prompt += `**Project**: ${description}\n`;
@@ -207,6 +313,19 @@ function generateComponentBreakdownPrompt(description: string, planSummary: stri
 }
 
 function generateTaskDetailingPrompt(description: string, planSummary: string, maxDepth: number): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "task_detailing");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            undefined,
+            planSummary,
+            maxDepth
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 4 - Task Detailing\n\n`;
     
     prompt += `**Project**: ${description}\n`;
@@ -231,6 +350,18 @@ function generateTaskDetailingPrompt(description: string, planSummary: string, m
 }
 
 function generateDependencyMappingPrompt(description: string, planSummary: string): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "dependency_mapping");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            undefined,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 5 - Dependency Mapping\n\n`;
     
     prompt += `**Project**: ${description}\n`;
@@ -255,47 +386,72 @@ function generateDependencyMappingPrompt(description: string, planSummary: strin
 }
 
 function generateImplementationDetailsPrompt(description: string, planSummary: string): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "implementation_details");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            undefined,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 6 - Implementation Details\n\n`;
     
     prompt += `**Project**: ${description}\n`;
     prompt += `**Previous Step**: ${planSummary}\n\n`;
     
     prompt += `**Instructions**:\n`;
-    prompt += `1. For important tasks, provide technical implementation guidance\n`;
-    prompt += `2. Identify recommended approaches, patterns, or algorithms\n`;
-    prompt += `3. Note potential challenges and considerations\n`;
-    prompt += `4. Think about performance, security, and maintainability\n\n`;
+    prompt += `1. Add technical implementation details for key tasks\n`;
+    prompt += `2. Include specific approaches, patterns, or techniques\n`;
+    prompt += `3. Consider error handling, edge cases, and resilience\n`;
+    prompt += `4. Address potential technical challenges\n\n`;
     
-    prompt += `**Think About**: How should these components be built? What technical challenges might arise?\n\n`;
+    prompt += `**Think About**: How should each part be implemented? What technical decisions need to be made?\n\n`;
     
     prompt += `**Next Step**:\n`;
     prompt += `Call planEpic with:\n`;
     prompt += `- currentStep = 6\n`;
-    prompt += `- planSummary = "Implementation approaches defined: [key approaches]"\n\n`;
+    prompt += `- planSummary = "Implementation details added for [X] components"\n\n`;
     
-    prompt += `Provide a 2-3 sentence implementation approach summary in planSummary. Think thoroughly about technical implementation before submitting.`;
+    prompt += `Provide a 2-3 sentence implementation summary in planSummary. Think thoroughly about implementation details before submitting.`;
     
     return prompt;
 }
 
 function generateTestStrategyPrompt(description: string, planSummary: string): string {
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "test_strategy");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            undefined,
+            undefined,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
     let prompt = `# Sequential Epic Planning: Step 7 - Test Strategy\n\n`;
     
     prompt += `**Project**: ${description}\n`;
     prompt += `**Previous Step**: ${planSummary}\n\n`;
     
     prompt += `**Instructions**:\n`;
-    prompt += `1. Define appropriate testing levels (unit, integration, system)\n`;
-    prompt += `2. Specify testing approaches for different components\n`;
-    prompt += `3. Identify test automation opportunities\n`;
-    prompt += `4. Consider edge cases and error scenarios\n\n`;
+    prompt += `1. Develop overall testing strategy\n`;
+    prompt += `2. Plan unit tests for key components\n`;
+    prompt += `3. Consider integration testing approach\n`;
+    prompt += `4. Plan for end-to-end or acceptance tests\n`;
+    prompt += `5. Consider test data needs\n\n`;
     
-    prompt += `**Think About**: How will you verify correctness? What edge cases need testing?\n\n`;
+    prompt += `**Think About**: How will we verify correctness? What testing approaches are most appropriate?\n\n`;
     
     prompt += `**Next Step**:\n`;
     prompt += `Call planEpic with:\n`;
     prompt += `- currentStep = 7\n`;
-    prompt += `- planSummary = "Test strategy defined: [testing approach]"\n\n`;
+    prompt += `- planSummary = "Test strategy defined with [approach] for [components]"\n\n`;
     
     prompt += `Provide a 2-3 sentence test strategy summary in planSummary. Think thoroughly about testing approaches before submitting.`;
     
@@ -303,22 +459,34 @@ function generateTestStrategyPrompt(description: string, planSummary: string): s
 }
 
 function generateFinalizationPrompt(description: string, planSummary: string, basePath?: string): string {
-    let prompt = `# Sequential Epic Planning: Complete\n\n`;
+    const stepConfig = DEFAULT_PLAN_CONFIGURATION.steps.find(step => step.id === "finalization");
+    if (stepConfig) {
+        return generatePromptFromStepConfig(
+            stepConfig,
+            description,
+            basePath,
+            undefined,
+            planSummary
+        );
+    }
+    
+    // Fallback implementation
+    let prompt = `# Sequential Epic Planning: Step 8 - Finalization\n\n`;
     
     prompt += `**Project**: ${description}\n`;
-    prompt += `**Planning Summary**: ${planSummary}\n\n`;
+    prompt += `**Previous Step**: ${planSummary}\n`;
+    if (basePath) prompt += `**Base Path**: ${basePath}\n\n`;
     
-    prompt += `**Planning Completed!**\n\n`;
+    prompt += `**Instructions**:\n`;
+    prompt += `1. Review the complete plan\n`;
+    prompt += `2. Ensure all tasks are properly defined\n`;
+    prompt += `3. Verify dependencies are correctly mapped\n`;
+    prompt += `4. Finalize implementation details and test strategy\n\n`;
     
-    prompt += `**Next Steps**:\n`;
-    prompt += `1. Use the batchEpic tool to create the Epic\n`;
-    prompt += `2. Create tasks and subtasks with proper hierarchy\n`;
-    prompt += `3. Include dependencies between tasks\n`;
-    if (basePath) prompt += `4. Use basePath: "${basePath}"\n\n`;
+    prompt += `**Think About**: Is the plan comprehensive and feasible? Have we missed anything important?\n\n`;
     
-    prompt += `When creating the Epic, rely on your detailed understanding of the requirements, components, tasks, dependencies, implementation details, and test strategy that you've developed during this planning process.\n\n`;
-    
-    prompt += `Now call the batchEpic tool to create the Epic.`;
+    prompt += `**Next Step**:\n`;
+    prompt += `Your planning is complete! Now use the batchEpic tool to create the Epic structure with all the tasks and details you've defined.\n\n`;
     
     return prompt;
 } 

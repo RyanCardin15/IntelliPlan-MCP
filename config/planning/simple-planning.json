@@ -1,0 +1,77 @@
+{
+  "id": "simple-implementation-plan",
+  "name": "Simplified Implementation Planning",
+  "description": "A streamlined implementation planning process with fewer steps",
+  "version": "1.0",
+  "defaultMaxDepth": 2,
+  "includeTestStrategy": true,
+  "steps": [
+    {
+      "id": "initialization",
+      "name": "Initialization",
+      "description": "Getting started with planning process",
+      "order": 0,
+      "instructions": [
+        "Review the project goal and requirements",
+        "Understand the scope of work"
+      ],
+      "thinkingPrompts": [
+        "What is the overall purpose of this implementation?",
+        "What are the high-level requirements?"
+      ],
+      "nextStepPrompt": "Call planEpic again with currentStep = 1 and planSummary = \"Starting component analysis\"",
+      "requiresPreviousStepData": false
+    },
+    {
+      "id": "component_analysis",
+      "name": "Component Analysis",
+      "description": "Break down project into components and tasks",
+      "order": 1,
+      "instructions": [
+        "Identify the main components needed",
+        "Break down components into specific tasks",
+        "Consider dependencies between components and tasks"
+      ],
+      "thinkingPrompts": [
+        "What major parts will make up this implementation?",
+        "How do these parts connect to each other?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 2 and planSummary = \"Components and tasks identified: [key components]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "implementation_planning",
+      "name": "Implementation Planning",
+      "description": "Create detailed implementation plan",
+      "order": 2,
+      "instructions": [
+        "Add technical details for key tasks",
+        "Consider implementation approaches",
+        "Plan for testing and validation"
+      ],
+      "thinkingPrompts": [
+        "How should each component be implemented?",
+        "What testing approach makes sense?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 3 and planSummary = \"Implementation plan created with [approach]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "finalization",
+      "name": "Finalization",
+      "description": "Finalize the plan and prepare for creation",
+      "order": 3,
+      "instructions": [
+        "Review the complete plan",
+        "Check for any missing components or tasks",
+        "Ensure dependencies are correctly identified"
+      ],
+      "thinkingPrompts": [
+        "Is this plan complete and feasible?",
+        "Have we missed anything important?"
+      ],
+      "nextStepPrompt": "Complete planning and create Epic using batchEpic tool",
+      "requiresPreviousStepData": true
+    }
+  ]
+} 

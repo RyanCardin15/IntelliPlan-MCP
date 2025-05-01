@@ -1,0 +1,303 @@
+{
+  "id": "indepth-implementation-plan",
+  "name": "In-Depth Implementation Planning",
+  "description": "A comprehensive implementation planning process with detailed steps for complex projects",
+  "version": "1.0",
+  "defaultMaxDepth": 4,
+  "includeTestStrategy": true,
+  "steps": [
+    {
+      "id": "initialization",
+      "name": "Initialization",
+      "description": "Getting started with planning process and project scope definition",
+      "order": 0,
+      "instructions": [
+        "Review the project goal and high-level requirements",
+        "Define the scope of work and project boundaries",
+        "Identify key stakeholders and their needs",
+        "Consider the target environment and deployment constraints",
+        "Note any initial assumptions or constraints"
+      ],
+      "thinkingPrompts": [
+        "What is the core purpose of this implementation?",
+        "Who are the primary users/stakeholders?",
+        "What are the technical and non-technical constraints?",
+        "Are there any specific performance or scalability requirements?"
+      ],
+      "nextStepPrompt": "Call planEpic again with currentStep = 1 and planSummary = \"Project scope defined with core requirements and constraints identified\"",
+      "requiresPreviousStepData": false
+    },
+    {
+      "id": "requirement_analysis",
+      "name": "Requirements Analysis",
+      "description": "Thorough analysis and prioritization of functional and non-functional requirements",
+      "order": 1,
+      "instructions": [
+        "Identify and categorize all functional requirements",
+        "Identify non-functional requirements (performance, security, usability, etc.)",
+        "Prioritize requirements using MoSCoW method (Must, Should, Could, Won't)",
+        "Analyze dependencies between requirements",
+        "Identify potential edge cases and exception scenarios",
+        "Document assumptions and constraints"
+      ],
+      "thinkingPrompts": [
+        "What must this system absolutely do vs what would be nice to have?",
+        "What are the security and performance requirements?",
+        "Are there compliance or regulatory requirements to consider?",
+        "What are potential edge cases that might be overlooked?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 2 and planSummary = \"Requirements analyzed: [key functional and non-functional requirements with priorities]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "architecture_planning",
+      "name": "Architecture Planning",
+      "description": "Define the overall system architecture and technical approach",
+      "order": 2,
+      "instructions": [
+        "Design the high-level architecture of the system",
+        "Identify key architectural patterns to use",
+        "Define the data model and storage approach",
+        "Consider system boundaries and interfaces",
+        "Evaluate technology choices and frameworks",
+        "Address scalability, performance, and security at the architectural level"
+      ],
+      "thinkingPrompts": [
+        "What architectural patterns best suit this project?",
+        "How should data flow through the system?",
+        "What are the performance bottlenecks we need to design around?",
+        "How does this architecture facilitate future extensions?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 3 and planSummary = \"Architecture defined: [key architectural decisions and patterns]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "component_breakdown",
+      "name": "Component Breakdown",
+      "description": "Break down the system into distinct components with clear responsibilities",
+      "order": 3,
+      "instructions": [
+        "Identify all major components based on the architecture",
+        "Define the responsibility and scope of each component",
+        "Establish interfaces between components",
+        "Consider reusability and modularity",
+        "Document component dependencies",
+        "Evaluate make vs. buy decisions for components"
+      ],
+      "thinkingPrompts": [
+        "What are the logical boundaries between components?",
+        "How will these components communicate?",
+        "Which components could be reused in other projects?",
+        "Are there existing libraries or services we should integrate rather than build?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 4 and planSummary = \"Components identified: [list of major components with responsibilities]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "task_detailing",
+      "name": "Task Detailing",
+      "description": "Break down components into specific implementable tasks",
+      "order": 4,
+      "instructions": [
+        "For each component, define specific implementation tasks",
+        "Break complex tasks into smaller, manageable subtasks",
+        "Make tasks specific, measurable, and actionable",
+        "Estimate complexity (1-10) for each task",
+        "Consider technical risks for each task",
+        "Define acceptance criteria for completion",
+        "Tag tasks by type (frontend, backend, data, etc.)"
+      ],
+      "thinkingPrompts": [
+        "What specific work items are needed to implement each component?",
+        "How can we break down complex tasks into manageable pieces?",
+        "What are the potential technical challenges for each task?",
+        "How will we know when a task is complete?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 5 and planSummary = \"Tasks defined: [X] tasks across [Y] components with complexity ranging from [min] to [max]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "dependency_mapping",
+      "name": "Dependency Mapping",
+      "description": "Establish relationships and dependencies between tasks",
+      "order": 5,
+      "instructions": [
+        "Map dependencies between tasks (which tasks must be completed before others)",
+        "Identify critical path tasks that directly impact timeline",
+        "Document external dependencies on third-party services or APIs",
+        "Identify potential blockers and contingency plans",
+        "Create a dependency graph to visualize relationships",
+        "Highlight parallel work streams that can proceed independently"
+      ],
+      "thinkingPrompts": [
+        "What is the logical sequence of implementation?",
+        "Which tasks are on the critical path?",
+        "What external dependencies might cause delays?",
+        "How can we parallelize work for efficiency?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 6 and planSummary = \"Dependencies mapped: [key dependencies] with [X] critical path items identified\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "resource_planning",
+      "name": "Resource Planning",
+      "description": "Plan resources, skills, and timeline required for implementation",
+      "order": 6,
+      "instructions": [
+        "Estimate required skills for each component/task",
+        "Identify potential resource constraints",
+        "Estimate rough timelines for completion",
+        "Consider training or expertise acquisition needs",
+        "Plan for tools and environments needed",
+        "Consider development, testing, and production resource requirements"
+      ],
+      "thinkingPrompts": [
+        "What specialized skills are required for implementation?",
+        "What tools and environments need to be set up?",
+        "Are there resource constraints we need to plan around?",
+        "What is a realistic timeline for completion?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 7 and planSummary = \"Resource plan created: [key resource requirements and timeline estimates]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "implementation_strategy",
+      "name": "Implementation Strategy",
+      "description": "Define detailed technical approach for implementing key components",
+      "order": 7,
+      "instructions": [
+        "Detail implementation approaches for complex components",
+        "Identify design patterns to be used",
+        "Plan for error handling and resilience",
+        "Consider performance optimization strategies",
+        "Outline security implementation aspects",
+        "Define coding standards and practices to follow",
+        "Consider deployment and integration strategy"
+      ],
+      "thinkingPrompts": [
+        "What design patterns will be most effective?",
+        "How should we handle errors and edge cases?",
+        "What performance optimizations should we implement?",
+        "How will we ensure security throughout the implementation?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 8 and planSummary = \"Implementation strategy defined: [key technical approaches and patterns]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "test_strategy",
+      "name": "Test Strategy",
+      "description": "Develop comprehensive testing approach across all levels",
+      "order": 8,
+      "instructions": [
+        "Define unit testing approach and coverage targets",
+        "Plan integration testing strategy",
+        "Design end-to-end and acceptance testing approach",
+        "Consider performance and load testing needs",
+        "Plan for security testing and vulnerability scanning",
+        "Define test data requirements",
+        "Consider automation vs. manual testing balance",
+        "Plan test environments and CI/CD integration"
+      ],
+      "thinkingPrompts": [
+        "How will we verify correctness at all levels?",
+        "What are the critical areas requiring thorough testing?",
+        "How should we approach performance and security testing?",
+        "What test data will we need to create?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 9 and planSummary = \"Test strategy defined: [testing approach] with [level of automation] and [key testing focuses]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "risk_assessment",
+      "name": "Risk Assessment",
+      "description": "Identify potential risks and mitigation strategies",
+      "order": 9,
+      "instructions": [
+        "Identify technical risks and their potential impact",
+        "Consider schedule and resource risks",
+        "Evaluate third-party and dependency risks",
+        "Develop mitigation strategies for high-impact risks",
+        "Create contingency plans for critical components",
+        "Identify early warning indicators for potential problems",
+        "Prioritize risks by likelihood and impact"
+      ],
+      "thinkingPrompts": [
+        "What could go wrong technically?",
+        "What external factors might impact the project?",
+        "How can we mitigate the highest impact risks?",
+        "What are our fallback plans if key assumptions prove invalid?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 10 and planSummary = \"Risks assessed: [top risks identified] with [mitigation approach]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "documentation_planning",
+      "name": "Documentation Planning",
+      "description": "Plan technical documentation and knowledge transfer",
+      "order": 10,
+      "instructions": [
+        "Define documentation requirements for the system",
+        "Plan API and interface documentation",
+        "Outline architecture documentation needs",
+        "Consider user-facing documentation requirements",
+        "Plan for code documentation standards",
+        "Identify knowledge transfer needs for future maintenance",
+        "Consider documentation tooling and formats"
+      ],
+      "thinkingPrompts": [
+        "What documentation is essential for ongoing maintenance?",
+        "How should we document the architecture and interfaces?",
+        "What documentation will users or integrators need?",
+        "How will we ensure documentation stays in sync with implementation?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 11 and planSummary = \"Documentation plan created: [key documentation deliverables]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "implementation_phasing",
+      "name": "Implementation Phasing",
+      "description": "Organize implementation into logical phases or iterations",
+      "order": 11,
+      "instructions": [
+        "Organize tasks into logical implementation phases",
+        "Define milestones and deliverables for each phase",
+        "Consider MVP and incremental delivery approach",
+        "Plan for early validation and feedback cycles",
+        "Define phase entry and exit criteria",
+        "Align phases with business priorities",
+        "Consider deployment and release strategy"
+      ],
+      "thinkingPrompts": [
+        "What is the most logical sequence of phases?",
+        "What constitutes a minimum viable product (MVP)?",
+        "How can we get early validation of our approach?",
+        "What are natural milestone points for review and adjustment?"
+      ],
+      "nextStepPrompt": "Call planEpic with currentStep = 12 and planSummary = \"Implementation phasing defined: [X] phases with [key milestones]\"",
+      "requiresPreviousStepData": true
+    },
+    {
+      "id": "finalization",
+      "name": "Plan Finalization",
+      "description": "Review, validate and finalize the complete implementation plan",
+      "order": 12,
+      "instructions": [
+        "Review the complete plan for consistency and comprehensiveness",
+        "Verify alignment with original requirements and goals",
+        "Ensure dependencies are correctly mapped",
+        "Check for completeness of all sections",
+        "Validate resource and timeline estimates",
+        "Consider presenting the plan for stakeholder review",
+        "Prepare for execution kick-off"
+      ],
+      "thinkingPrompts": [
+        "Is the plan comprehensive and feasible?",
+        "Have we missed any important considerations?",
+        "Does the overall approach align with best practices?",
+        "Are our resource and timeline estimates realistic?"
+      ],
+      "nextStepPrompt": "Planning is complete. Create the Epic structure using batchEpic tool with all the detailed planning information.",
+      "requiresPreviousStepData": true
+    }
+  ]
+} 

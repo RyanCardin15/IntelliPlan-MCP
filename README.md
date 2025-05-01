@@ -112,6 +112,46 @@ You can specify which diagrams to include using the `diagramTypes` parameter arr
 
 3. **Enable & Start Planning**: Activate MCP in your editor settings and start organizing your development process!
 
+## 📝 Customizing Planning Process
+
+IntelliPlan supports customizable planning processes through JSON configuration files:
+
+1. **Create Configuration Files**:
+   You can place JSON configuration files anywhere in your project. The `config/planning/` directory is suggested for organization, but not required. See `config/planning/simple-planning.json` for an example.
+
+2. **Configuration Structure**:
+   ```json
+   {
+     "id": "your-plan-id",
+     "name": "Your Plan Name",
+     "description": "Description of your planning process",
+     "version": "1.0",
+     "defaultMaxDepth": 3,
+     "includeTestStrategy": true,
+     "steps": [
+       {
+         "id": "step-id",
+         "name": "Step Name",
+         "description": "Step description",
+         "order": 0,
+         "instructions": ["Instruction 1", "Instruction 2"],
+         "thinkingPrompts": ["Thinking prompt 1", "Thinking prompt 2"],
+         "nextStepPrompt": "Guidance for the next step",
+         "requiresPreviousStepData": false
+       }
+       // Additional steps...
+     ]
+   }
+   ```
+
+3. **Use Custom Configuration**:
+   ```
+   @IntelliPlanMCP planEpic description="Your project" configPath="full/path/to/your/config.json"
+   ```
+
+4. **LLM-Generated Configurations**:
+   The configuration path doesn't have to point to an existing file. The language model can generate custom planning configurations on-the-fly based on your requirements. Simply ask the LLM to create a planning configuration for your specific needs, and it will generate the appropriate JSON configuration for your use case.
+
 ## 🔍 Why IntelliPlan?
 
 Unlike traditional task managers that live outside your development environment, IntelliPlan works right where you code. This integration eliminates context switching and keeps your planning tightly coupled with implementation.
