@@ -72,7 +72,9 @@ IntelliPlan provides a suite of powerful tools to manage your development proces
 @IntelliPlanMCP getEpicOverview epicId=your-epic-id basePath="/path/to/project" diagramTypes=["progressPie", "dependencyGraph", "userJourney"]
 ```
 
-## Available Diagrams
+## Available Diagrams 🚧
+
+> **Note:** The diagram functionality is currently a Work In Progress (WIP) 🚧
 
 The `getEpicOverview` tool supports various Mermaid diagram types to visualize your epic's structure and progress:
 
