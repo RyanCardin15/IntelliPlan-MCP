@@ -1,7 +1,7 @@
 # ✨ IntelliPlan MCP
 
 <p align="center">
-  <em>Your AI-powered Epic Planning Assistant for Cursor AI</em>
+  <em>Your AI-powered Epic Planning Assistant for AI Clients</em>
 </p>
 
 ![IntelliPlan MCP Demo](IntelliPlanMCP_Demo.gif)
