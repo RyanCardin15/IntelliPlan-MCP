@@ -6,6 +6,10 @@
   <em>Your AI-powered Epic Planning Assistant for Cursor AI</em>
 </p>
 
+<a href="https://glama.ai/mcp/servers/@RyanCardin15/IntelliPlan-MCP">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@RyanCardin15/IntelliPlan-MCP/badge" alt="IntelliPlan MCP server" />
+</a>
+
 ![IntelliPlan MCP Demo](IntelliPlanMCP_Demo.gif)
 
 ---
