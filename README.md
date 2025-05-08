@@ -1,7 +1,9 @@
 # ✨ IntelliPlan MCP
 
+[![smithery badge](https://smithery.ai/badge/@RyanCardin15/intelliplan-mcp)](https://smithery.ai/server/@RyanCardin15/intelliplan-mcp)
+
 <p align="center">
-  <em>Your AI-powered Epic Planning Assistant for AI Clients</em>
+  <em>Your AI-powered Epic Planning Assistant for Cursor AI</em>
 </p>
 
 ![IntelliPlan MCP Demo](IntelliPlanMCP_Demo.gif)
