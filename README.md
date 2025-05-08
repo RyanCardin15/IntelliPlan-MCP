@@ -95,6 +95,69 @@ The `getEpicOverview` tool supports various Mermaid diagram types to visualize y
 
 You can specify which diagrams to include using the `diagramTypes` parameter array. If not specified, all diagram types will be included when `includeDiagrams` is set to `true`.
 
+## 🔄 Remote Server Mode
+
+IntelliPlan now supports a remote server mode, allowing you to store your epics and tasks on a centralized server instead of directly on your local filesystem. This enables team collaboration and access to your planning data from multiple devices.
+
+### 📡 Setting Up the Remote Server
+
+1. **Start the API Server**: 
+   ```bash
+   # Set environment variables for configuration or use defaults
+   npm run start:api
+   ```
+
+2. **Environment Variables for the API Server**:
+   - `PORT`: Port to run the server on (default: 3000)
+   - `STORAGE_PATH`: Location where the API server will store data (default: current directory)
+
+### 🔌 Connecting to a Remote Server
+
+1. **Simple Configuration**:
+   
+   At minimum, you only need to set:
+   ```bash
+   STORAGE_MODE=remote
+   ```
+   
+   This will connect to a server running on http://localhost:4007 by default.
+
+2. **Advanced Configuration** (optional):
+   ```bash
+   STORAGE_MODE=remote
+   REMOTE_API_URL=http://your-server:4007  # Custom server URL
+   REMOTE_API_KEY=your-api-key             # If authentication is enabled
+   ```
+
+3. **Start IntelliPlan in remote mode**:
+   ```bash
+   npm run dev
+   ```
+
+4. **Configure in Cursor**: Add to your `.cursor-settings.json`:
+   ```json
+   {
+     "mcpServers": {
+       "IntelliPlanMCP": {
+         "command": "node",
+         "args": ["path/to/dist/index.js"],
+         "env": {
+           "STORAGE_MODE": "remote"
+         }
+       }
+     }
+   }
+   ```
+
+### 🛡️ Security Considerations
+
+- The API server includes basic rate limiting and CORS protection
+- For production use, consider adding:
+  - HTTPS encryption
+  - Strong authentication
+  - More robust input validation
+  - Backup solutions for your data
+
 ## 🛠️ Getting Started
 
 1. **Install IntelliPlan**: 

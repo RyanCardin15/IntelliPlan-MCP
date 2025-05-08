@@ -60,8 +60,9 @@ export class EpicService {
     return success ? updatedEpic : undefined;
   }
 
-  deleteEpic(epicId: string): boolean {
-    return this.epicRepository.deleteEpic(epicId);
+  async deleteEpic(epicId: string): Promise<boolean> {
+    const result = await Promise.resolve(this.epicRepository.deleteEpic(epicId));
+    return result;
   }
   
   async saveAll(): Promise<void> {
